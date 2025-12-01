@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Login</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; display: flex; justify-content: center; align-items: center; }
+        .container { background: white; padding: 40px; border-radius: 10px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); width: 100%; max-width: 400px; }
+        h2 { color: #333; margin-bottom: 30px; text-align: center; font-size: 28px; }
+        label { display: block; margin: 15px 0 5px; color: #555; font-weight: 500; }
+        input, select { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 5px; font-size: 14px; }
+        input:focus, select:focus { outline: none; border-color: #667eea; box-shadow: 0 0 5px rgba(102, 126, 234, 0.3); }
+        button { width: 100%; padding: 12px; background: #667eea; color: white; border: none; border-radius: 5px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+        button:hover { background: #5568d3; }
+        p { text-align: center; margin-top: 20px; color: #666; }
+        a { color: #667eea; text-decoration: none; font-weight: 500; }
+        a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Login</h2>
+
+    <form id="loginForm" method="POST" action="/login/">
+        {% csrf_token %}
+
+        <label>Username:</label><br>
+        <input type="text" name="username" id="username" required><br><br>
+
+        <label>Password:</label><br>
+        <input type="password" name="password" id="password" required><br><br>
+
+        <label>Role:</label>
+        <select name="role" id="role">
+            <option value="beneficiary">Beneficiary</option>
+            <option value="officer">Officer</option>
+        </select><br><br>
+
+        <button type="submit">Login</button>
+        <p>New Beneficiary? 
+             <a href="/beneficiary/register/">Create an Account</a>
+        </p>
+
+    </form>
+    </div>
+</body>
+</html>

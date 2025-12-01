@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Case 4 - Delay Analysis</title>
+    <style>
+        body{ font-family: Arial, sans-serif; padding: 20px; background:#f7f7f7 }
+        .container{ max-width:1000px; margin:0 auto; background:white; padding:20px; border-radius:8px }
+        .form-grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px }
+        label{ font-weight:600; display:block; margin-bottom:6px }
+        input, select, textarea{ width:100%; padding:8px; border:1px solid #ddd; border-radius:6px }
+        textarea { min-height: 100px; }
+        .button-group{ margin-top:16px }
+        button{ background:#667eea;color:white;padding:10px 18px;border:none;border-radius:6px }
+        .loans{ margin-top:18px }
+        .loan{ border:1px solid #eee; padding:10px; border-radius:6px; margin-bottom:8px }
+        .note{ margin-top:12px; color:green }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Case 4 - Delay Analysis</h2>
+        <p>Provide details about payment delays and any active loans.</p>
+
+        {% if form.errors %}
+        <div style="background:#fee; border:1px solid #c33; padding:10px; border-radius:6px; margin-bottom:16px">
+            <strong>Form Errors:</strong>
+            {{ form.errors }}
+        </div>
+        {% endif %}
+
+        <form method="post">
+            {% csrf_token %}
+            <div class="form-grid">
+                <div>
+                    <label>Electricity Units/Month</label>
+                    {{ form.electricity_units }}
+                </div>
+                <div>
+                    <label>Electricity Bill</label>
+                    {{ form.electricity_bill }}
+                </div>
+                <div>
+                    <label>Payments Regular?</label>
+                    {{ form.payments_regularity }}
+                </div>
+                <div>
+                    <label>Average Mobile Bill</label>
+                    {{ form.average_mobile_bill }}
+                </div>
+                <div>
+                    <label>Gas Bill</label>
+                    {{ form.gas_bill }}
+                </div>
+                <div>
+                    <label>Gas Frequency</label>
+                    {{ form.gas_frequency }}
+                </div>
+                <div>
+                    <label>Employment Type</label>
+                    {{ form.employment_type }}
+                </div>
+                <div>
+                    <label>Working Days / Month</label>
+                    {{ form.working_days_per_month }}
+                </div>
+                <div>
+                    <label>Digital Payment Frequency</label>
+                    {{ form.digital_payment_frequency }}
+                </div>
+                <div>
+                    <label>Average Bank Balance</label>
+                    {{ form.average_bank_balance }}
+                </div>
+                <div>
+                    <label>Cash Inflow</label>
+                    {{ form.cash_inflow }}
+                </div>
+                <div>
+                    <label>Cash Outflow</label>
+                    {{ form.cash_outflow }}
+                </div>
+                <div>
+                    <label>Transactions / Month</label>
+                    {{ form.transactions_per_month }}
+                </div>
+                <div>
+                    <label>Last 6 months avg bank balance</label>
+                    {{ form.last_6_months_avg_bank_balance }}
+                </div>
+                <div>
+                    <label>Number of Active Loans</label>
+                    {{ form.number_of_active_loans }}
+                </div>
+                <div style="grid-column:1 / -1">
+                    <label>Reasons for Delay</label>
+                    {{ form.reasons_for_delay }}
+                </div>
+            </div>
+
+            <div class="button-group">
+                <button type="submit">Save Case 4 Details</button>
+                <a href="/case4/add-loan/" style="margin-left:12px"><button type="button">Add Loan</button></a>
+            </div>
+            {% if saved %}
+            <p class="note">Details saved successfully.</p>
+            {% endif %}
+        </form>
+
+        <div class="loans">
+            <h3>Active Loans</h3>
+            {% for loan in loans %}
+            <div class="loan">
+                <strong>Loan {{ loan.loan_number }}</strong>
+                <div>Type: {{ loan.loan_type }}</div>
+                <div>Amount: {{ loan.loan_amount }}</div>
+                <div>Sanction date: {{ loan.loan_sanction_date }}</div>
+                <div>Tenure months: {{ loan.tenure_months }}</div>
+                <div>EMI: {{ loan.emi }}</div>
+                <div>Last EMI date: {{ loan.last_emi_date }}</div>
+            </div>
+            {% empty %}
+            <p>No active loans recorded.</p>
+            {% endfor %}
+        </div>
+    </div>
+</body>
+</html>

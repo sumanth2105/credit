@@ -1,0 +1,14 @@
+<h2>Income Scoring Result</h2>
+
+<p>Total Score: {{ total_score }}</p>
+<p>Estimated Monthly Income: ₹{{ income }}</p>
+<p>Income Band: {{ income_band }}</p>
+
+<h3>Data Used</h3>
+<ul>
+  <li>Electricity Bill: ₹{{ electricity_bill }}</li>
+  <li>Mobile Bill: ₹{{ mobile_bill }}</li>
+  <li>Gas Bill: ₹{{ gas_bill }}</li>
+</ul>
+
+<a href="{% url 'beneficiary_profile' %}">Back to Profile</a>

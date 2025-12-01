@@ -1,0 +1,11 @@
+<h2>Enter Bills </h2>
+
+<form method="POST">
+    {% csrf_token %}
+    {{ form.as_p }}
+
+    <button type="submit">Calculate</button>
+</form>
+
+<br>
+<a href="/beneficiary/profile/"><button>Back</button></a>

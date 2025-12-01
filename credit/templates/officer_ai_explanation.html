@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AI Explanation</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 800px; margin: auto; }
+        .back { margin-bottom: 20px; }
+        .back a { 
+            background-color: #007bff; 
+            color: white; 
+            padding: 8px 15px; 
+            border-radius: 5px; 
+            text-decoration: none;
+            display: inline-block;
+        }
+        .back a:hover { background-color: #0056b3; }
+        .info-box { background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 15px 0; }
+        .info-box h3 { margin-top: 0; }
+        .info-box p { margin: 10px 0; }
+        .no-log { text-align: center; color: #666; padding: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="back">
+            <a href="/officer/beneficiaries/">← Back to Beneficiaries</a>
+        </div>
+        
+        <h2>AI Explanation for {{ beneficiary.name }}</h2>
+        
+        <div class="info-box">
+            <h3>Beneficiary Details</h3>
+            <p><strong>ID:</strong> {{ beneficiary.id }}</p>
+            <p><strong>Name:</strong> {{ beneficiary.name }}</p>
+            <p><strong>Age:</strong> {{ beneficiary.age }}</p>
+            <p><strong>Location:</strong> {{ beneficiary.location }}</p>
+            <p><strong>Phone:</strong> {{ beneficiary.phone }}</p>
+            <p><strong>Email:</strong> {{ beneficiary.email }}</p>
+        </div>
+        
+        {% if log %}
+            <div class="info-box">
+                <h3>AI Score Analysis</h3>
+                <p><strong>Score:</strong> {{ log.score }}</p>
+                <p><strong>Risk Band:</strong> {{ log.risk_band }}</p>
+                <p><strong>Need Band:</strong> {{ log.need_band }}</p>
+                <p><strong>Model Used:</strong> {{ log.model_used }}</p>
+                <p><strong>Created:</strong> {{ log.created_at|date:"Y-m-d H:i:s" }}</p>
+            </div>
+            
+            <div class="info-box">
+                <h3>Explanation</h3>
+                <p>{{ log.explanation }}</p>
+            </div>
+        {% else %}
+            <div class="no-log">
+                <p>No AI score found for this beneficiary. <a href="/officer/beneficiaries/">Go back</a></p>
+            </div>
+        {% endif %}
+    </div>
+</body>
+</html>

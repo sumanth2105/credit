@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Loan Applications</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 1200px; margin: auto; }
+        .actions { margin-bottom: 20px; }
+        .actions a { 
+            background-color: #007bff; 
+            color: white; 
+            padding: 8px 15px; 
+            border-radius: 5px; 
+            text-decoration: none; 
+            margin-right: 10px; 
+            display: inline-block;
+        }
+        .actions a:hover { background-color: #0056b3; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background-color: #007bff; color: white; }
+        tr:hover { background-color: #f5f5f5; }
+        .pending { background-color: #fff3cd; }
+        .approved { background-color: #d4edda; }
+        .rejected { background-color: #f8d7da; }
+        form { display: inline; }
+        select, textarea { width: 100%; padding: 5px; margin: 5px 0; }
+        button { background-color: #28a745; color: white; padding: 5px 10px; border: none; border-radius: 3px; cursor: pointer; }
+        button:hover { background-color: #218838; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Loan Applications</h2>
+        
+        <div class="actions">
+            <a href="/officer/dashboard-stats/">Dashboard</a>
+            <a href="/officer/beneficiaries/">Beneficiaries</a>
+            <a href="/officer/upload/">Upload CSV</a>
+            <a href="/logout/">Logout</a>
+        </div>
+        
+        {% if applications %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Beneficiary</th>
+                        <th>Score</th>
+                        <th>Loan Amount</th>
+                        <th>Tenure (months)</th>
+                        <th>Phone</th>
+                        <th>Email</th>
+                        <th>Status</th>
+                        <th>Officer</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for app in applications %}
+                        <tr class="{% if app.status == 'PENDING' %}pending{% elif app.status == 'APPROVED' %}approved{% else %}rejected{% endif %}">
+                            <td>{{ app.beneficiary.name }}</td>
+                            <td>{{ app.beneficiary.score }}</td>
+                            <td>₹{{ app.loan_amount }}</td>
+                            <td>{{ app.tenure_months }}</td>
+                            <td>{{ app.phone }}</td>
+                            <td>{{ app.email }}</td>
+                            <td><strong>{{ app.status }}</strong></td>
+                            <td>{{ app.officer.username|default:"Pending" }}</td>
+                            <td>
+                                {% if app.status == "PENDING" %}
+                                    <form method="POST" action="/officer/loan-applications/{{ app.id }}/decide/">
+                                        {% csrf_token %}
+                                        <select name="decision" required style="width: 100px;">
+                                            <option value="">--Select--</option>
+                                            <option value="approve">Approve</option>
+                                            <option value="reject">Reject</option>
+                                        </select>
+                                        <button type="submit">Submit</button>
+                                    </form>
+                                {% else %}
+                                    <span>{{ app.decision_notes }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p style="text-align: center; color: #666; padding: 20px;">No loan applications found.</p>
+        {% endif %}
+    </div>
+</body>
+</html>

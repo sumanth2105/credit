@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Beneficiary Details - Officer View</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; background: #f5f5f5; padding: 20px; }
+        .container { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); max-width: 1000px; margin: 0 auto; }
+        .back { margin-bottom: 20px; }
+        .back a { 
+            background-color: #6c757d; 
+            color: white; 
+            padding: 8px 15px; 
+            border-radius: 5px; 
+            text-decoration: none;
+            display: inline-block;
+        }
+        .back a:hover { background-color: #5a6268; }
+        h2 { color: #333; margin-bottom: 20px; font-size: 26px; }
+        .section { margin: 30px 0; }
+        .section-title { color: #555; font-size: 18px; border-bottom: 2px solid #667eea; padding-bottom: 10px; margin-bottom: 15px; }
+        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .info-item { background: #f9f9f9; padding: 12px; border-radius: 5px; }
+        .info-item label { display: block; color: #666; font-weight: 500; margin-bottom: 5px; font-size: 12px; }
+        .info-item value { display: block; color: #333; font-size: 16px; font-weight: 500; }
+        .status-badge { display: inline-block; padding: 5px 10px; border-radius: 20px; font-weight: bold; font-size: 12px; }
+        .status-eligible { background: #d4edda; color: #155724; }
+        .status-pending { background: #fff3cd; color: #856404; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th { background: #667eea; color: white; padding: 12px; text-align: left; }
+        td { padding: 12px; border-bottom: 1px solid #ddd; }
+        tr:hover { background: #f5f5f5; }
+        .no-data { text-align: center; padding: 20px; color: #999; }
+        .document-link { color: #667eea; text-decoration: none; font-weight: 500; }
+        .document-link:hover { text-decoration: underline; }
+        .button-group { display: flex; gap: 10px; margin-top: 20px; }
+        .btn { 
+            background: #667eea; 
+            color: white; 
+            padding: 10px 20px; 
+            border: none; 
+            border-radius: 5px; 
+            cursor: pointer; 
+            text-decoration: none;
+            display: inline-block;
+        }
+        .btn:hover { background: #5568d3; }
+        .btn-secondary { background: #6c757d; }
+        .btn-secondary:hover { background: #5a6268; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="back">
+            <a href="/officer/beneficiaries/">← Back to Beneficiaries</a>
+        </div>
+        
+        <h2>Beneficiary Profile - {{ beneficiary.name }}</h2>
+        
+        <!-- Personal Information -->
+        <div class="section">
+            <div class="section-title">Personal Information</div>
+            <div class="info-grid">
+                <div class="info-item">
+                    <label>ID</label>
+                    <value>{{ beneficiary.id }}</value>
+                </div>
+                <div class="info-item">
+                    <label>Name</label>
+                    <value>{{ beneficiary.name }}</value>
+                </div>
+                <div class="info-item">
+                    <label>Age</label>
+                    <value>{{ beneficiary.age|default:"N/A" }}</value>
+                </div>
+                <div class="info-item">
+                    <label>Gender</label>
+                    <value>{{ beneficiary.get_gender_display|default:"N/A" }}</value>
+                </div>
+                <div class="info-item">
+                    <label>Date of Birth</label>
+                    <value>{{ beneficiary.date_of_birth|date:"Y-m-d"|default:"N/A" }}</value>
+                </div>
+                <div class="info-item">
+                    <label>Phone</label>
+                    <value>{{ beneficiary.phone|default:"N/A" }}</value>
+                </div>
+                <div class="info-item">
+                    <label>Email</label>
+                    <value>{{ beneficiary.email|default:"N/A" }}</value>
+                </div>
+                <div class="info-item">
+                    <label>Location</label>
+                    <value>{{ beneficiary.location|default:"N/A" }}</value>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Financial Information -->
+        <div class="section">
+            <div class="section-title">Financial & Scoring Information</div>
+            <div class="info-grid">
+                <div class="info-item">
+                    <label>Estimated Income</label>
+                    <value>₹{{ beneficiary.income_est|default:"N/A" }}</value>
+                </div>
+                <div class="info-item">
+                    <label>Score</label>
+                    <value>{{ beneficiary.score|default:"N/A" }}</value>
+                </div>
+                <div class="info-item">
+                    <label>Risk Band</label>
+                    <value>{{ beneficiary.risk_band|default:"N/A" }}</value>
+                </div>
+                <div class="info-item">
+                    <label>Need Band</label>
+                    <value>{{ beneficiary.need_band|default:"N/A" }}</value>
+                </div>
+                <div class="info-item">
+                    <label>Eligibility</label>
+                    <value><span class="status-badge status-eligible">{{ beneficiary.eligibility|default:"N/A" }}</span></value>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Documents -->
+        <div class="section">
+            <div class="section-title">Documents ({{ documents.count }})</div>
+            {% if documents %}
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Document Type</th>
+                            <th>Document Number</th>
+                            <th>Upload Date</th>
+                            <th>View</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for doc in documents %}
+                            <tr>
+                                <td>{{ doc.get_doc_type_display }}</td>
+                                <td>{{ doc.document_number }}</td>
+                                <td>{{ doc.uploaded_at|date:"Y-m-d H:i" }}</td>
+                                <td>
+                                    {% if doc.image %}
+                                        <a href="{{ doc.image.url }}" target="_blank" class="document-link">View</a>
+                                    {% else %}
+                                        <span style="color: #999;">No file</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <div class="no-data">No documents uploaded</div>
+            {% endif %}
+        </div>
+        
+        <!-- Loans -->
+        <div class="section">
+            <div class="section-title">Loan History ({{ loans.count }})</div>
+            {% if loans %}
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Loan Amount</th>
+                            <th>Tenure (months)</th>
+                            <th>Status</th>
+                            <th>Created Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for loan in loans %}
+                            <tr>
+                                <td>₹{{ loan.amount }}</td>
+                                <td>{{ loan.tenure }}</td>
+                                <td><span class="status-badge status-pending">{{ loan.repayment_status }}</span></td>
+                                <td>{{ loan.created_at|date:"Y-m-d H:i" }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <div class="no-data">No loan history</div>
+            {% endif %}
+        </div>
+        
+        <!-- AI Score Log -->
+        {% if ai_log %}
+            <div class="section">
+                <div class="section-title">AI Score Analysis</div>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <label>Model Used</label>
+                        <value>{{ ai_log.model_used }}</value>
+                    </div>
+                    <div class="info-item">
+                        <label>Analysis Date</label>
+                        <value>{{ ai_log.created_at|date:"Y-m-d H:i" }}</value>
+                    </div>
+                </div>
+                <div style="background: #f9f9f9; padding: 15px; border-radius: 5px; margin-top: 15px; border-left: 4px solid #667eea;">
+                    <strong>Explanation:</strong>
+                    <p style="margin-top: 10px; color: #555; line-height: 1.6;">{{ ai_log.explanation }}</p>
+                </div>
+            </div>
+        {% endif %}
+        
+        <!-- Action Buttons -->
+        <div class="button-group" style="margin-top: 30px;">
+            <a href="/officer/beneficiary/{{ beneficiary.id }}/documents/" class="btn">View All Documents</a>
+            <a href="/officer/ai-explain/{{ beneficiary.id }}/" class="btn">View AI Explanation</a>
+            <a href="/officer/beneficiaries/" class="btn btn-secondary">Back to List</a>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Credit Score</title>
+</head>
+<body>
+    <h2>Credit Score Summary</h2>
+
+    <p><strong>Name:</strong> {{ beneficiary.name }}</p>
+
+    <p><strong>Credit Score (300–900):</strong> {{ credit_score }}</p>
+    <p><strong>Risk Band:</strong> {{ risk_band }}</p>
+    <p><strong>Eligibility Label:</strong> {{ eligibility_label }}</p>
+
+    <h3>Income Info</h3>
+    <p>Declared Monthly Income: {{ beneficiary.estimated_monthly_income }}</p>
+    <p>Model Estimated Income: {{ beneficiary.income_est }}</p>
+
+    <a href="{% url 'beneficiary_profile' %}">Back to Profile</a>
+</body>
+</html>

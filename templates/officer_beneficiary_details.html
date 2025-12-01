@@ -1,0 +1,339 @@
+{% extends "base.html" %}
+
+{% block title %}Beneficiary Details - Officer Verification{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <h2>Beneficiary Profile - Verification</h2>
+    <hr>
+
+    <!-- Basic Information -->
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">Basic Information</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>Name:</strong> {{ beneficiary.name }}</p>
+                    <p><strong>Email:</strong> {{ beneficiary.email }}</p>
+                    <p><strong>Phone:</strong> {{ beneficiary.phone }}</p>
+                    <p><strong>Age:</strong> {{ beneficiary.age }}</p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>Address:</strong> {{ beneficiary.address }}</p>
+                    <p><strong>City:</strong> {{ beneficiary.city }}</p>
+                    <p><strong>State:</strong> {{ beneficiary.state }}</p>
+                    <p><strong>Income Category:</strong> <span class="badge bg-info">{{ beneficiary.income_category }}</span></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Profile Details -->
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">Profile Details</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>Employment Type:</strong> {{ beneficiary.employment_type }}</p>
+                    <p><strong>Education Level:</strong> {{ beneficiary.education_level }}</p>
+                    <p><strong>Marital Status:</strong> {{ beneficiary.marital_status }}</p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>Estimated Monthly Income:</strong> ₹{{ beneficiary.estimated_monthly_income }}</p>
+                    <p><strong>Income Est (Alternative):</strong> ₹{{ beneficiary.income_est }}</p>
+                    <p><strong>CIBIL Score:</strong> {{ beneficiary.cibil_score }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Case 1 Details -->
+    {% if case1_details %}
+    <div class="card mb-4">
+        <div class="card-header bg-success text-white">
+            <h5 class="mb-0">Case 1 Details - Utility & Consumption</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>Electricity Units/Month:</strong> {{ case1_details.electricity_units }}</p>
+                    <p><strong>Electricity Bill:</strong> ₹{{ case1_details.electricity_bill }}</p>
+                    <p><strong>Gas Bill:</strong> ₹{{ case1_details.gas_bill }}</p>
+                    <p><strong>Gas Frequency:</strong> {{ case1_details.gas_frequency }}</p>
+                    <p><strong>Average Mobile Bill:</strong> ₹{{ case1_details.average_mobile_bill }}</p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>Payments Regularity:</strong> 
+                        {% if case1_details.payments_regularity %}
+                            <span class="badge bg-success">Regular</span>
+                        {% else %}
+                            <span class="badge bg-danger">Irregular</span>
+                        {% endif %}
+                    </p>
+                    <p><strong>Digital Payment Frequency:</strong> {{ case1_details.digital_payment_frequency }}</p>
+                    <p><strong>Working Days/Month:</strong> {{ case1_details.working_days_per_month }}</p>
+                    <p><strong>Average Bank Balance:</strong> ₹{{ case1_details.average_bank_balance }}</p>
+                </div>
+            </div>
+            <hr>
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>Cash Inflow:</strong> ₹{{ case1_details.cash_inflow }}</p>
+                    <p><strong>Cash Outflow:</strong> ₹{{ case1_details.cash_outflow }}</p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>Transactions/Month:</strong> {{ case1_details.transactions_per_month }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Case 2 Details -->
+    {% if case2_details %}
+    <div class="card mb-4">
+        <div class="card-header bg-success text-white">
+            <h5 class="mb-0">Case 2 Details - Employment & Banking</h5>
+        </div>
+        <div class="card-body">
+            <p class="mb-3"><strong>Employment Type:</strong> {{ case2_details.employment_type }}</p>
+            <p class="mb-3"><strong>Working Days/Month:</strong> {{ case2_details.working_days_per_month }}</p>
+            <p class="mb-3"><strong>Last 6 Months Avg Bank Balance:</strong> ₹{{ case2_details.last_6_months_avg_bank_balance }}</p>
+            <p class="mb-3"><strong>Number of Active Loans:</strong> {{ case2_details.number_of_active_loans }}</p>
+            
+            {% if case2_loans %}
+            <div class="mt-4">
+                <h6>Associated Loans:</h6>
+                <table class="table table-sm table-bordered">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Loan #</th>
+                            <th>Type</th>
+                            <th>Amount</th>
+                            <th>Sanction Date</th>
+                            <th>Tenure (Months)</th>
+                            <th>EMI</th>
+                            <th>Last EMI Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for loan in case2_loans %}
+                        <tr>
+                            <td>{{ loan.loan_number }}</td>
+                            <td>{{ loan.loan_type }}</td>
+                            <td>₹{{ loan.loan_amount }}</td>
+                            <td>{{ loan.loan_sanction_date }}</td>
+                            <td>{{ loan.tenure_months }}</td>
+                            <td>₹{{ loan.emi }}</td>
+                            <td>{{ loan.last_emi_date }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Case 3 Details -->
+    {% if case3_details %}
+    <div class="card mb-4">
+        <div class="card-header bg-success text-white">
+            <h5 class="mb-0">Case 3 Details - Wealth & Business</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>Total Properties Value:</strong> ₹{{ case3_details.total_properties_value }}</p>
+                    <p><strong>Wealth Index:</strong> {{ case3_details.wealth_index }}</p>
+                    <p><strong>Any Business:</strong> 
+                        {% if case3_details.any_business %}
+                            <span class="badge bg-success">Yes</span>
+                        {% else %}
+                            <span class="badge bg-danger">No</span>
+                        {% endif %}
+                    </p>
+                    <p><strong>Insurance Coverage:</strong> 
+                        {% if case3_details.insurance_coverage %}
+                            <span class="badge bg-success">Yes</span>
+                        {% else %}
+                            <span class="badge bg-danger">No</span>
+                        {% endif %}
+                    </p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>Luxury Expenditures:</strong> ₹{{ case3_details.luxury_expenditures }}</p>
+                    <p><strong>Outstanding Bank Balance:</strong> ₹{{ case3_details.outstanding_bank_balance }}</p>
+                    <p><strong>Loan Purpose:</strong> {{ case3_details.loan_purpose }}</p>
+                    <p><strong>CIBIL Loan History:</strong> {{ case3_details.loan_history_cibil }}</p>
+                </div>
+            </div>
+            
+            {% if case3_loans %}
+            <div class="mt-4">
+                <h6>Associated Loans:</h6>
+                <table class="table table-sm table-bordered">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Loan #</th>
+                            <th>Type</th>
+                            <th>Amount</th>
+                            <th>Sanction Date</th>
+                            <th>Tenure (Months)</th>
+                            <th>EMI</th>
+                            <th>Last EMI Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for loan in case3_loans %}
+                        <tr>
+                            <td>{{ loan.loan_number }}</td>
+                            <td>{{ loan.loan_type }}</td>
+                            <td>₹{{ loan.loan_amount }}</td>
+                            <td>{{ loan.loan_sanction_date }}</td>
+                            <td>{{ loan.tenure_months }}</td>
+                            <td>₹{{ loan.emi }}</td>
+                            <td>{{ loan.last_emi_date }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Case 4 Details -->
+    {% if case4_details %}
+    <div class="card mb-4">
+        <div class="card-header bg-success text-white">
+            <h5 class="mb-0">Case 4 Details - Delay Analysis</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>Last 6 Months Avg Bank Balance:</strong> ₹{{ case4_details.last_6_months_avg_bank_balance }}</p>
+                    <p><strong>Number of Active Loans:</strong> {{ case4_details.number_of_active_loans }}</p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>Reasons for Delay:</strong></p>
+                    <p class="text-muted">{{ case4_details.reasons_for_delay|linebreaks }}</p>
+                </div>
+            </div>
+            
+            {% if case4_loans %}
+            <div class="mt-4">
+                <h6>Associated Loans:</h6>
+                <table class="table table-sm table-bordered">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Loan #</th>
+                            <th>Type</th>
+                            <th>Amount</th>
+                            <th>Sanction Date</th>
+                            <th>Tenure (Months)</th>
+                            <th>EMI</th>
+                            <th>Last EMI Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for loan in case4_loans %}
+                        <tr>
+                            <td>{{ loan.loan_number }}</td>
+                            <td>{{ loan.loan_type }}</td>
+                            <td>₹{{ loan.loan_amount }}</td>
+                            <td>{{ loan.loan_sanction_date }}</td>
+                            <td>{{ loan.tenure_months }}</td>
+                            <td>₹{{ loan.emi }}</td>
+                            <td>{{ loan.last_emi_date }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Documents -->
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">Uploaded Documents</h5>
+        </div>
+        <div class="card-body">
+            {% if documents %}
+            <table class="table table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th>Document Type</th>
+                        <th>Upload Date</th>
+                        <th>Download</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for doc in documents %}
+                    <tr>
+                        <td>{{ doc.document_type }}</td>
+                        <td>{{ doc.uploaded_at|date:"d M Y H:i" }}</td>
+                        <td>
+                            <a href="{{ doc.file.url }}" target="_blank" class="btn btn-sm btn-primary">
+                                Download
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p class="text-muted">No documents uploaded.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- AI Score Log -->
+    {% if ai_log %}
+    <div class="card mb-4">
+        <div class="card-header bg-info text-white">
+            <h5 class="mb-0">AI Score Assessment</h5>
+        </div>
+        <div class="card-body">
+            <p><strong>Score:</strong> {{ ai_log.score }}</p>
+            <p><strong>Risk Band:</strong> {{ ai_log.risk_band }}</p>
+            <p><strong>Need Band:</strong> {{ ai_log.need_band }}</p>
+            <p><strong>Model Used:</strong> {{ ai_log.model_used }}</p>
+            <p><strong>Explanation:</strong> {{ ai_log.explanation }}</p>
+            <p><strong>Assessment Date:</strong> {{ ai_log.created_at|date:"d M Y H:i" }}</p>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Action Buttons -->
+    <div class="mt-4 mb-4">
+        <a href="{% url 'officer_dashboard' %}" class="btn btn-secondary">Back to Dashboard</a>
+        <a href="{% url 'officer_beneficiaries' %}" class="btn btn-secondary">Back to Beneficiaries</a>
+    </div>
+</div>
+
+<style>
+    .card {
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    }
+    .card-header {
+        font-weight: 600;
+    }
+    .badge {
+        font-size: 0.875rem;
+        padding: 0.375rem 0.625rem;
+    }
+    .table-bordered td, .table-bordered th {
+        border: 1px solid #dee2e6;
+    }
+</style>
+{% endblock %}

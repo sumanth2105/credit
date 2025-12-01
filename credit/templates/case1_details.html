@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Case 1 - Other Details</title>
+    <style>
+        body{ font-family: Arial, sans-serif; padding: 20px; background:#f7f7f7 }
+        .container{ max-width:900px; margin:0 auto; background:white; padding:20px; border-radius:8px }
+        .form-grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px }
+        label{ font-weight:600; display:block; margin-bottom:6px }
+        input, select, textarea{ width:100%; padding:8px; border:1px solid #ddd; border-radius:6px }
+        .button-group{ margin-top:16px }
+        button{ background:#667eea;color:white;padding:10px 18px;border:none;border-radius:6px }
+        .note{ margin-top:12px; color:green }
+        .errorlist{ color:red; margin:4px 0 0; padding:0; list-style:none; font-size:13px }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Case 1 - Other Details</h2>
+        <p>These details help improve scoring and are only for beneficiaries with no loans.</p>
+
+        <!-- ✅ make sure method is POST and action is correct -->
+        <form method="post" action="{% url 'case1_details' %}">
+            {% csrf_token %}
+
+            <!-- ✅ show any non-field errors -->
+            {{ form.non_field_errors }}
+
+            <div class="form-grid">
+                <div>
+                    <label>Electricity Units</label>
+                    {{ form.electricity_units }}
+                    {{ form.electricity_units.errors }}
+                </div>
+                <div>
+                    <label>Electricity Bill</label>
+                    {{ form.electricity_bill }}
+                    {{ form.electricity_bill.errors }}
+                </div>
+                <div>
+                    <label>Payments Regular?</label>
+                    {{ form.payments_regularity }}
+                    {{ form.payments_regularity.errors }}
+                </div>
+                <div>
+                    <label>Average Mobile Bill</label>
+                    {{ form.average_mobile_bill }}
+                    {{ form.average_mobile_bill.errors }}
+                </div>
+                <div>
+                    <label>Gas Bill</label>
+                    {{ form.gas_bill }}
+                    {{ form.gas_bill.errors }}
+                </div>
+                <div>
+                    <label>Gas Frequency</label>
+                    {{ form.gas_frequency }}
+                    {{ form.gas_frequency.errors }}
+                </div>
+                <div>
+                    <label>Employment Type</label>
+                    {{ form.employment_type }}
+                    {{ form.employment_type.errors }}
+                </div>
+                <div>
+                    <label>Working Days / Month</label>
+                    {{ form.working_days_per_month }}
+                    {{ form.working_days_per_month.errors }}
+                </div>
+                <div>
+                    <label>Digital Payment Frequency</label>
+                    {{ form.digital_payment_frequency }}
+                    {{ form.digital_payment_frequency.errors }}
+                </div>
+                <div>
+                    <label>Average Bank Balance</label>
+                    {{ form.average_bank_balance }}
+                    {{ form.average_bank_balance.errors }}
+                </div>
+                <div>
+                    <label>Cash Inflow</label>
+                    {{ form.cash_inflow }}
+                    {{ form.cash_inflow.errors }}
+                </div>
+                <div>
+                    <label>Cash Outflow</label>
+                    {{ form.cash_outflow }}
+                    {{ form.cash_outflow.errors }}
+                </div>
+                <div>
+                    <label>Transactions / Month</label>
+                    {{ form.transactions_per_month }}
+                    {{ form.transactions_per_month.errors }}
+                </div>
+            </div>
+
+            <div class="button-group">
+                <button type="submit">Save Case 1 Details</button>
+            </div>
+        </form>
+    </div>
+</body>
+</html>

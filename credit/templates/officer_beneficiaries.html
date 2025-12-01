@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Beneficiaries List</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 1200px; margin: auto; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background-color: #667eea; color: white; }
+        tr:hover { background-color: #f5f5f5; }
+        .actions { margin-bottom: 20px; }
+        .actions a, .actions button { 
+            background-color: #667eea; 
+            color: white; 
+            padding: 8px 15px; 
+            border: none; 
+            border-radius: 5px; 
+            cursor: pointer; 
+            text-decoration: none; 
+            margin-right: 10px; 
+            display: inline-block;
+        }
+        .actions a:hover, .actions button:hover { background-color: #5568d3; }
+        .empty { text-align: center; padding: 20px; color: #666; }
+        .action-links { display: flex; gap: 8px; }
+        .action-links a { 
+            padding: 5px 10px; 
+            font-size: 12px; 
+            margin-right: 0;
+            display: inline;
+        }
+        .action-links a.details { background-color: #667eea; }
+        .action-links a.details:hover { background-color: #5568d3; }
+        .action-links a.documents { background-color: #28a745; }
+        .action-links a.documents:hover { background-color: #218838; }
+        .action-links a.ai { background-color: #ffc107; color: #333; }
+        .action-links a.ai:hover { background-color: #e0a800; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Beneficiaries List</h2>
+        
+        <div class="actions">
+            <a href="/officer/upload/">Upload CSV</a>
+            <a href="/officer/dashboard-stats/">Dashboard</a>
+            <a href="/officer/loan-applications/">Loan Applications</a>
+            <a href="/logout/">Logout</a>
+        </div>
+        
+        {% if beneficiaries %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Name</th>
+                        <th>Age</th>
+                        <th>Location</th>
+                        <th>Income Est.</th>
+                        <th>Score</th>
+                        <th>Risk Band</th>
+                        <th>Need Band</th>
+                        <th>Eligibility</th>
+                        <th>Created</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ben in beneficiaries %}
+                        <tr>
+                            <td>{{ ben.id }}</td>
+                            <td>{{ ben.name }}</td>
+                            <td>{{ ben.age }}</td>
+                            <td>{{ ben.location }}</td>
+                            <td>{{ ben.income_est }}</td>
+                            <td>{{ ben.score }}</td>
+                            <td>{{ ben.risk_band }}</td>
+                            <td>{{ ben.need_band }}</td>
+                            <td>{{ ben.eligibility }}</td>
+                            <td>{{ ben.created_at|date:"Y-m-d H:i" }}</td>
+                            <td>
+                                <div class="action-links">
+                                    <a href="/officer/beneficiary/{{ ben.id }}/" class="details">Details</a>
+                                    <a href="/officer/beneficiary/{{ ben.id }}/documents/" class="documents">Docs</a>
+                                    <a href="/officer/ai-explain/{{ ben.id }}/" class="ai">AI</a>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <div class="empty">
+                <p>No beneficiaries found. <a href="/officer/upload/">Upload one</a></p>
+            </div>
+        {% endif %}
+    </div>
+</body>
+</html>

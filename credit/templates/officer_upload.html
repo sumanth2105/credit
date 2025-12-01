@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Upload Beneficiaries</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 600px; margin: auto; }
+        .message { padding: 10px; border-radius: 5px; margin: 10px 0; }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        form { border: 1px solid #ddd; padding: 15px; border-radius: 5px; }
+        input[type="file"] { margin: 10px 0; }
+        button { background-color: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; }
+        button:hover { background-color: #0056b3; }
+        a { margin-left: 10px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Upload Beneficiaries (CSV)</h2>
+        
+        {% if message %}
+            <div class="message success">{{ message }}</div>
+        {% endif %}
+        
+        {% if error %}
+            <div class="message error">{{ error }}</div>
+        {% endif %}
+        
+        <form method="POST" enctype="multipart/form-data">
+            {% csrf_token %}
+            <label for="file">Select CSV File:</label>
+            <input type="file" name="file" id="file" accept=".csv" required>
+            <button type="submit">Upload</button>
+            <a href="/officer/beneficiaries/"><button type="button">View Beneficiaries</button></a>
+        </form>
+        
+        <h3>CSV Format</h3>
+        <p>Your CSV file should have the following columns:</p>
+        <ul>
+            <li><strong>name</strong> - Beneficiary name</li>
+            <li><strong>age</strong> - Age (optional)</li>
+            <li><strong>location</strong> - Location (optional)</li>
+            <li><strong>income_est</strong> - Estimated income (optional)</li>
+            <li><strong>loan_amount</strong> - Loan amount (optional)</li>
+            <li><strong>tenure</strong> - Loan tenure in months (optional)</li>
+            <li><strong>repayment_status</strong> - Repayment status (optional)</li>
+            <li><strong>electricity_bill</strong> - Electricity bill (optional)</li>
+            <li><strong>mobile_bill</strong> - Mobile bill (optional)</li>
+            <li><strong>other_bills</strong> - Other bills (optional)</li>
+        </ul>
+    </div>
+</body>
+</html>

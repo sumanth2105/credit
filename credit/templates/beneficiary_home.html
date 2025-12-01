@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Beneficiary Home</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; background: #f5f5f5; padding: 20px; }
+        .container { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); max-width: 700px; margin: 0 auto; }
+        h2 { color: #333; margin-bottom: 20px; font-size: 28px; }
+        h3 { color: #555; margin-top: 25px; margin-bottom: 15px; font-size: 18px; border-bottom: 2px solid #667eea; padding-bottom: 10px; }
+        p { margin: 8px 0; color: #666; line-height: 1.6; }
+        strong { color: #333; }
+        .button-group { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 30px; }
+        a { text-decoration: none; }
+        button { background: #667eea; color: white; padding: 10px 20px; border: none; border-radius: 5px; font-size: 14px; font-weight: bold; cursor: pointer; transition: background 0.3s; }
+        button:hover { background: #5568d3; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Welcome, {{ name }}!</h2>
+
+
+<h3>Personal Details</h3>
+<p><strong>Name:</strong> {{ name }}</p>
+<p><strong>Age:</strong> {{ age }}</p>
+<p><strong>Gender:</strong> {{ gender }}</p>
+<p><strong>Date of Birth:</strong> {{ date_of_birth }}</p>
+<p><strong>Phone:</strong> {{ phone }}</p>
+<p><strong>Email:</strong> {{ email }}</p>
+
+<h3>Socio-Economic Information</h3>
+<p><strong>Education Level:</strong> {{ education_level|default:"Not specified" }}</p>
+<p><strong>Marital Status:</strong> {{ marital_status|default:"Not specified" }}</p>
+<p><strong>Ration Card Type:</strong> {{ ration_card_type|default:"Not specified" }}</p>
+<p><strong>Government Subsidy Received:</strong> {% if govt_subsidy_received %}Yes{% else %}No{% endif %}</p>
+
+<h3>Financial Information</h3>
+<p><strong>Income Category:</strong> {{ income_category|default:"Not specified" }}</p>
+<p><strong>Employment Type:</strong> {{ employment_type|default:"Not specified" }}</p>
+<p><strong>Work Consistency (Days/Month):</strong> {{ work_consistency_days|default:"Not specified" }}</p>
+
+<h3>Scoring & Eligibility</h3>
+<p><strong>Approval Flag:</strong> {% if approval_flag %}Approved{% elif approval_flag == False %}Not Approved{% else %}Pending{% endif %}</p>
+<p><strong>Score:</strong> {{ score|default:"Not calculated" }}</p>
+<p><strong>Eligibility:</strong> {{ eligibility|default:"Not determined" }}</p>
+
+{% if other_details %}
+<h3>Additional Details</h3>
+<p><strong>Other Information:</strong></p>
+<pre style="background:#f5f5f5; padding:10px; border-radius:5px; overflow-x:auto;">{{ other_details }}</pre>
+{% endif %}
+
+        <div class="button-group">
+            <a href="/beneficiary/profile/">
+                <button>Refresh Profile</button>
+            </a>
+
+            <a href="/beneficiary/edit/">
+                <button type="button">Personal Details</button>
+            </a>
+
+            <a href="/beneficiary/documents/">
+                <button type="button">My Documents</button>
+            </a>
+
+            <a href="/case1/input/">
+                <button>Estimated income </button>
+            </a>
+
+            <a href="{% url 'beneficiary_score' %}">View Credit Score</a>
+
+
+
+            <a href="/beneficiary/apply-loan/">
+                <button type="button">Apply for Loan</button>
+            </a>
+
+            <a href="/logout/">
+                <button type="button" style="background: #dc3545;">Logout</button>
+            </a>
+        </div>
+    </div>
+
+
+</body>
+</html>
+
