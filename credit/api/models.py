@@ -40,6 +40,19 @@ class Profile(models.Model):
 
 
 class Beneficiary(models.Model):
+
+
+    CASE1 = "CASE1"
+    CASE2 = "CASE2"
+    CASE3 = "CASE3"
+    CASE4 = "CASE4"
+
+    CASE_TYPE_CHOICES = [
+        (CASE1, "Case 1"),
+        (CASE2, "Case 2"),
+        (CASE3, "Case 3"),
+        (CASE4, "Case 4"),
+    ]
     id = models.CharField(max_length=20, primary_key=True, default=generate_beneficiary_id, editable=False)
     name = models.CharField(max_length=256)
     age = models.PositiveIntegerField(null=True, blank=True)
@@ -83,6 +96,19 @@ class Beneficiary(models.Model):
     officer = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="uploaded_beneficiaries")
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
+
+    number_of_loans = models.PositiveIntegerField(
+        null=True, blank=True, help_text="Total number of loans"
+    )
+    emi_due_delays = models.PositiveIntegerField(
+        null=True, blank=True, help_text="No. of delayed EMIs"
+    )
+    credit_card_available = models.BooleanField(
+        null=True, blank=True, help_text="Has credit card?"
+    )
+    cibil_score = models.PositiveIntegerField(
+        null=True, blank=True, help_text="Reported CIBIL score"
+    )
     case_type = models.CharField(
         max_length=10,
         null=True,
@@ -106,6 +132,22 @@ class Beneficiary(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.id})"
+    
+    def compute_case_type(self):
+       
+        n = self.number_of_loans or 0
+        d = self.emi_due_delays or 0
+
+        if n == 0:
+            return self.CASE1
+        elif n <= 3 and d <= 2:
+            return self.CASE2
+        elif n > 3:
+            return self.CASE3
+        elif n <= 3 and d > 2:
+            return self.CASE4
+        else:
+            return None
 
 class LoanHistory(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

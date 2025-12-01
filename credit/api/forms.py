@@ -49,54 +49,25 @@ class BeneficiaryEditForm(forms.Form):
     district = forms.CharField(max_length=100, required=False)
     household_size = forms.IntegerField(required=False)
     # Socio-Economic
-    EDUCATION_LEVEL_CHOICES = [
-        ("No Formal Education", "No Formal Education"),
-        ("10th", "10th"),
-        ("Higher Secondary (Class 11–12)", "Higher Secondary (Class 11–12)"),
-        ("Diploma / ITI / Vocational", "Diploma / ITI / Vocational"),
-        ("Undergraduate (Bachelor’s Degree)", "Undergraduate (Bachelor’s Degree)"),
-        ("Postgraduate (Master’s Degree)", "Postgraduate (Master’s Degree)"),
-        ("Professional Degree", "Professional Degree"),
-        ("Doctorate / PhD", "Doctorate / PhD"),
-        ("Other", "Other"),
-    ]
-    education_level = forms.ChoiceField(choices=EDUCATION_LEVEL_CHOICES, required=False)
-    MARITAL_STATUS_CHOICES = [
-        ("Married", "Married"),
-        ("Unmarried", "Unmarried"),
-    ]
-    marital_status = forms.ChoiceField(choices=MARITAL_STATUS_CHOICES, required=False)
-    ration_card_type = forms.CharField(max_length=50, required=False)
-    govt_subsidy_received = forms.BooleanField(required=False, label="Government Subsidy Received")
-    # Verification flags
-    aadhaar_verified = forms.BooleanField(required=False, label="Aadhaar Verified")
-    pan_available = forms.BooleanField(required=False, label="PAN Available")
-    bank_account_active = forms.BooleanField(required=False, label="Bank Account Active")
-    # Financial
-    # `estimated_monthly_income` is editable by the beneficiary.
-    # `income_est` (scoring estimate) remains system/officer-managed and is not editable here.
-    estimated_monthly_income = forms.FloatField(required=False, label="Estimated Monthly Income")
-    EMPLOYMENT_TYPE_CHOICES = [
-        ("Self-Employed", "Self-Employed"),
-        ("Government Employee", "Government Employee"),
-        ("Central Government", "Central Government"),
-        ("State Government", "State Government"),
-        ("Public Sector Undertaking (PSU)", "Public Sector Undertaking (PSU)"),
-        ("Private Sector Employee", "Private Sector Employee"),
-        ("Casual / Daily Wage Worker", "Casual / Daily Wage Worker"),
-        ("Skilled / Unskilled Worker", "Skilled / Unskilled Worker"),
-        ("Gig Worker (Swiggy, Zomato, Uber, etc.)", "Gig Worker (Swiggy, Zomato, Uber, etc.)"),
-        ("Home-Based Worker", "Home-Based Worker"),
-        ("Agricultural Worker / Farmer", "Agricultural Worker / Farmer"),
-    ]
-    employment_type = forms.ChoiceField(choices=EMPLOYMENT_TYPE_CHOICES, required=False)
+    ...
     work_consistency_days = forms.IntegerField(required=False, label="Work Consistency (Days/Month)")
-    # Scoring & Decision (managed by system/officer; not editable by beneficiary)
-    # New categorization fields
+    # New categorization fields (already there)
     number_of_loans = forms.IntegerField(required=True, label="Number of Loans")
     emi_due_delays = forms.IntegerField(required=True, label="Number of EMI Due Delays")
-    credit_card = forms.ChoiceField(choices=[('no','No'),('yes','Yes')], required=True, label="Do you have a credit card?")
+    credit_card = forms.ChoiceField(
+        choices=[('no', 'No'), ('yes', 'Yes')],
+        required=True,
+        label="Do you have a credit card?"
+    )
     cibil_score = forms.IntegerField(required=False, label="CIBIL Score (if credit card is Yes)")
+
+    # 🔥 New: reason for changes
+    change_reason = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 3}),
+        label="Reason for changing loan / EMI / credit-card / CIBIL details (if you changed them)"
+    )
+
 
 class BeneficiaryDocumentForm(forms.ModelForm):
     class Meta:

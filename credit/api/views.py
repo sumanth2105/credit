@@ -613,6 +613,7 @@ def beneficiary_calculate(request):
 
 
 #----------edit beneficiary data-------
+@login_required
 
 def beneficiary_edit(request):
     if not request.user.is_authenticated:
@@ -623,11 +624,13 @@ def beneficiary_edit(request):
         return HttpResponseForbidden("Beneficiary access required")
 
     ben = Beneficiary.objects.filter(user=request.user).first()
+    if not ben:
+        return HttpResponseForbidden("Beneficiary profile not found")
 
     if request.method == "POST":
         form = BeneficiaryEditForm(request.POST)
-        category = None
         if form.is_valid():
+            # ---------- Basic fields ----------
             ben.name = form.cleaned_data["name"]
             ben.age = form.cleaned_data["age"]
             ben.location = form.cleaned_data["location"]
@@ -647,10 +650,9 @@ def beneficiary_edit(request):
             ben.aadhaar_verified = form.cleaned_data.get("aadhaar_verified", False)
             ben.pan_available = form.cleaned_data.get("pan_available", False)
             ben.bank_account_active = form.cleaned_data.get("bank_account_active", False)
-            # Allow beneficiary to provide their own estimated monthly income. The
-            # system-maintained `income_est` (from Case1/scoring) is not editable by beneficiaries.
+
             ben.estimated_monthly_income = form.cleaned_data.get("estimated_monthly_income")
-            # Compute income_category from the higher of the two income estimates
+            # recompute income_category (same as before)
             try:
                 v1 = float(getattr(ben, "income_est", 0) or 0.0)
             except Exception:
@@ -672,38 +674,86 @@ def beneficiary_edit(request):
                 ben.income_category = "upper medium"
             else:
                 ben.income_category = "high"
+
             ben.employment_type = form.cleaned_data.get("employment_type")
             ben.work_consistency_days = form.cleaned_data.get("work_consistency_days")
-            # Do not accept or set eligibility_label, model_score, approval_flag from beneficiary form.
-            # New categorization fields
-            number_of_loans = form.cleaned_data.get("number_of_loans")
-            emi_due_delays = form.cleaned_data.get("emi_due_delays")
-            credit_card = form.cleaned_data.get("credit_card")
-            cibil_score = form.cleaned_data.get("cibil_score")
-            # Categorization logic
-            if number_of_loans == 0:
-                category = "Case 1: No loans"
-            elif number_of_loans <= 3 and emi_due_delays <= 2:
-                category = "Case 2: <=3 loans, <=2 delays"
-            elif number_of_loans > 3 :
-                category = "Case 3: >3 loans"
-            elif number_of_loans <= 3 and emi_due_delays > 2:
-                category = "Case 4: <=3 loans, >2 delays"
-            else:
-                category = "Uncategorized"
+
+            # ---------- Critical fields ----------
+            new_number_of_loans = form.cleaned_data.get("number_of_loans")
+            new_emi_due_delays = form.cleaned_data.get("emi_due_delays")
+            credit_card_choice = form.cleaned_data.get("credit_card")  # 'yes' / 'no'
+            new_credit_card_available = True if credit_card_choice == "yes" else False
+            new_cibil_score = form.cleaned_data.get("cibil_score")
+
+            # Old values (may be None initially)
+            old_number_of_loans = ben.number_of_loans
+            old_emi_due_delays = ben.emi_due_delays
+            old_credit_card_available = ben.credit_card_available
+            old_cibil_score = ben.cibil_score
+
+            # First time? -> all four are None
+            first_time = (
+                old_number_of_loans is None and
+                old_emi_due_delays is None and
+                old_credit_card_available is None and
+                old_cibil_score is None
+            )
+
+            # Which fields actually changed?
+            critical_changes = []
+            if old_number_of_loans != new_number_of_loans:
+                critical_changes.append("number_of_loans")
+            if old_emi_due_delays != new_emi_due_delays:
+                critical_changes.append("emi_due_delays")
+            if old_credit_card_available != new_credit_card_available:
+                critical_changes.append("credit_card_available")
+            if old_cibil_score != new_cibil_score:
+                critical_changes.append("cibil_score")
+
+            change_reason = form.cleaned_data.get("change_reason", "").strip()
+
+            # 🔒 If NOT first time and there are changes but no reason -> error
+            if critical_changes and not first_time and not change_reason:
+                form.add_error(
+                    "change_reason",
+                    "Please provide a reason for changing your loan/EMI/credit-card/CIBIL details."
+                )
+                return render(request, "beneficiary_edit.html", {"form": form, "beneficiary": ben})
+
+            # Save reason if provided and changes happened
+            if critical_changes and change_reason:
+                ben.loans_dues_change_reason = change_reason
+
+            # Save new critical values to model
+            ben.number_of_loans = new_number_of_loans
+            ben.emi_due_delays = new_emi_due_delays
+            ben.credit_card_available = new_credit_card_available
+            ben.cibil_score = new_cibil_score
+
+            # ---------- Compute & store case_type ----------
+            ben.case_type = ben.compute_case_type()
+
             ben.save()
-            # redirect to case-specific details pages
-            if category.startswith("Case 1"):
+
+            # Redirect based on stored case_type
+            if ben.case_type == Beneficiary.CASE1:
                 return redirect('case1_details')
-            elif category.startswith("Case 2"):
+            elif ben.case_type == Beneficiary.CASE2:
                 return redirect('case2_details')
-            elif category.startswith("Case 3"):
+            elif ben.case_type == Beneficiary.CASE3:
                 return redirect('case3_details')
-            elif category.startswith("Case 4"):
+            elif ben.case_type == Beneficiary.CASE4:
                 return redirect('case4_details')
             else:
-                return render(request, "beneficiary_edit.html", {"form": form, "category": category, "beneficiary": ben})
+                # fallback: stay on page and show category text
+                return render(
+                    request,
+                    "beneficiary_edit.html",
+                    {"form": form, "beneficiary": ben, "category": "Uncategorized"}
+                )
+
     else:
+        # GET: prefill form with existing data
         form = BeneficiaryEditForm(initial={
             "name": ben.name,
             "age": ben.age,
@@ -727,19 +777,21 @@ def beneficiary_edit(request):
             "employment_type": ben.employment_type,
             "work_consistency_days": ben.work_consistency_days,
             "estimated_monthly_income": ben.estimated_monthly_income,
-            "number_of_loans": getattr(ben, "number_of_loans", 0),
-            "emi_due_delays": getattr(ben, "emi_due_delays", 0),
-            "credit_card": getattr(ben, "credit_card", "no"),
-            "cibil_score": getattr(ben, "cibil_score", None),
+            "number_of_loans": ben.number_of_loans or 0,
+            "emi_due_delays": ben.emi_due_delays or 0,
+            "credit_card": "yes" if ben.credit_card_available else "no",
+            "cibil_score": ben.cibil_score,
+            "change_reason": "",  # empty by default
         })
+
     return render(request, "beneficiary_edit.html", {"form": form, "beneficiary": ben})
+
 
 
 
 #-----------Documents----------
 
-@login_required
-@login_required
+
 @login_required
 def upload_beneficiary_document(request):
     user = request.user
@@ -967,6 +1019,9 @@ def case1_input(request):
 def case1_details(request):
     ben = get_object_or_404(Beneficiary, user=request.user)
 
+    if ben.case_type and ben.case_type != Beneficiary.CASE1:
+        return HttpResponseForbidden("You are not allowed to access Case 1 details.")
+
     # Get existing details if they exist
     try:
         details = ben.case1_details
@@ -1010,6 +1065,8 @@ from .models import Case2Details  # make sure this import exists at the top
 @login_required
 def case2_details(request):
     ben = get_object_or_404(Beneficiary, user=request.user)
+    if ben.case_type and ben.case_type != Beneficiary.CASE2:
+        return HttpResponseForbidden("You are not allowed to access Case 2 details.")
 
     details, created = Case2Details.objects.get_or_create(beneficiary=ben)
 
@@ -1062,6 +1119,8 @@ def case2_add_loan(request):
 @login_required
 def case3_details(request):
     ben = get_object_or_404(Beneficiary, user=request.user)
+    if ben.case_type and ben.case_type != Beneficiary.CASE4:
+        return HttpResponseForbidden("You are not allowed to access Case 4 details.")
     try:
         details = ben.case3_details
     except Exception:
@@ -1116,6 +1175,8 @@ def case3_add_loan(request):
 @login_required
 def case4_details(request):
     ben = get_object_or_404(Beneficiary, user=request.user)
+    if ben.case_type and ben.case_type != Beneficiary.CASE4:
+        return HttpResponseForbidden("You are not allowed to access Case 4 details.")
     try:
         details = ben.case4_details
     except Exception:
@@ -1496,22 +1557,17 @@ def compute_credit_score_for_beneficiary(ben):
     return credit_score, risk_band, eligibility_label
 
 
-from django.contrib.auth.decorators import login_required
-from django.shortcuts import get_object_or_404, render
 
 @login_required
 def beneficiary_score(request):
-    """
-    Show CREDIT score (300–900) for the logged-in beneficiary.
-    Uses compute_credit_score_for_beneficiary.
-    """
+    
     ben = get_object_or_404(Beneficiary, user=request.user)
 
     score, risk_band, eligibility_label = compute_credit_score_for_beneficiary(ben)
 
     return render(
         request,
-        "beneficiary_score.html",   # template name
+        "beneficiary_score.html",   
         {
             "beneficiary": ben,
             "credit_score": score,
@@ -1519,3 +1575,5 @@ def beneficiary_score(request):
             "eligibility_label": eligibility_label,
         },
     )
+
+
