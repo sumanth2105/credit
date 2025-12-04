@@ -1,32 +1,52 @@
 import csv
 import io
 import logging
+import requests
 from api.forms import (
-    Case1Form, BeneficiaryRegisterForm, BeneficiaryDocumentForm, BeneficiaryEditForm,
-    Case1DetailsForm, Case2DetailsForm, Case2LoanForm, Case3DetailsForm, Case3LoanForm
+     BeneficiaryRegisterForm, BeneficiaryDocumentForm, BeneficiaryEditForm,CaseDetailsForm
 )
 from django.shortcuts import render, redirect, get_object_or_404
+from twilio.rest import Client
+from django.conf import settings
 from django.http import JsonResponse, HttpResponseForbidden
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_http_methods
+from django.contrib import messages
 from django.views.decorators.csrf import csrf_exempt
 from .models import (
     Beneficiary, LoanHistory, ConsumptionData, AIScoreLog, Profile,
-    BeneficiaryDocument, LoanApplication, Case1Details, Case2Details, Case2Loan,
-    Case3Details, Case3Loan
+    BeneficiaryDocument, LoanApplication,CaseDetails
 )
-from .models import Case4Details, Case4Loan
-from api.forms import Case4DetailsForm, Case4LoanForm
 from django.contrib.auth.models import User
 from django.utils import timezone
+
+
 
 logger = logging.getLogger(__name__)
 
 
 
 
+def fetch_citizen_profile(phone):
+    
+
+    url = f"http://127.0.0.1:8001/api/profile/{phone}/"
+
+    try:
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()  # Raise exception for HTTP errors
+        return response.json()
+
+    except requests.exceptions.RequestException as e:
+        raise Exception(f"Failed to fetch citizen profile: {e}")
+
+
+
+
+
 # ---------- Helper: auto income scoring & reset AI fields ----------
+
 
 def auto_compute_income_from_details(ben):
     """
@@ -38,26 +58,39 @@ def auto_compute_income_from_details(ben):
     details = None
     for attr in ("case1_details", "case2_details", "case3_details", "case4_details"):
         try:
-            details = getattr(ben, attr)
-            if details is not None:
+            d = getattr(ben, attr)
+            if d:
+                details = d
                 break
         except Exception:
             continue
 
-    # 2. Extract bills
+    # 2. Extract bills safely
     ele = mob = gas = 0.0
     if details:
-        ele = float(getattr(details, "electricity_bill", 0) or 0)
-        mob = float(getattr(details, "average_mobile_bill", 0) or 0)
-        gas = float(getattr(details, "gas_bill", 0) or 0)
+        try:
+            ele = float(getattr(details, "electricity_bill", 0) or 0)
+        except Exception:
+            ele = 0.0
+        try:
+            mob = float(getattr(details, "average_mobile_bill", 0) or 0)
+        except Exception:
+            mob = 0.0
+        try:
+            gas = float(getattr(details, "gas_bill", 0) or 0)
+        except Exception:
+            gas = 0.0
 
     total_bills = ele + mob + gas
 
     # 3. Personal estimated income from profile form
-    personal_est = float(ben.estimated_monthly_income or 0)
+    personal_est = 0.0
+    try:
+        personal_est = float(ben.estimated_monthly_income or 0)
+    except Exception:
+        personal_est = 0.0
 
-    # 4. Map bills → income band (simple heuristic, can be replaced by ML later)
-    income_from_bills = 0
+    # 4. Map bills → income band (simple heuristic)
     if total_bills <= 0:
         income_from_bills = 0
     elif total_bills <= 1000:
@@ -73,7 +106,7 @@ def auto_compute_income_from_details(ben):
     final_income = max(personal_est, income_from_bills) if (personal_est or income_from_bills) else None
     ben.income_est = final_income
 
-    # 5. Recompute income_category from income_est (same logic used elsewhere)
+    # 5. Recompute income_category from income_est
     base = float(final_income or 0)
     if base == 0:
         ben.income_category = None
@@ -99,7 +132,9 @@ def auto_compute_income_from_details(ben):
     ben.approval_flag = None
     ben.eligibility = "unknown"
 
+    # 7. Persist everything
     ben.save()
+
 
 
 # ---------- Templates & Auth ----------
@@ -118,28 +153,35 @@ def login_page(request):
 
 
 
+from django.contrib.auth import authenticate, login
+
 def user_login(request):
     if request.method == "POST":
         username = request.POST.get("username")
         password = request.POST.get("password")
-        role = request.POST.get("role") 
+        role = request.POST.get("role")
 
         user = authenticate(request, username=username, password=password)
 
         if user is not None:
-            login(request, user)
-            # redirect based on role
+            # Officer login
             if role == "officer":
+                login(request, user)
                 return redirect("/officer/dashboard-stats/")
-            else:
-                return redirect("/beneficiary/profile/")
-        else:
-            return render(request, "login.html", {"error": "Invalid credentials"})
 
+            # Beneficiary login – no OTP check here
+            login(request, user)
+            return redirect("/beneficiary/profile/")
+
+        # Authentication failed
+        return render(request, "login.html", {"error": "Invalid credentials"})
+
+    # GET request – just show the form
     return render(request, "login.html")
 
 
 #------------sign up for beneficiary----------
+
 def beneficiary_register(request):
     if request.method == "POST":
         form = BeneficiaryRegisterForm(request.POST)
@@ -148,25 +190,33 @@ def beneficiary_register(request):
             password = form.cleaned_data['password']
             name = form.cleaned_data['name']
             age = form.cleaned_data['age']
-            location = form.cleaned_data['location']
             gender = form.cleaned_data.get('gender')
             date_of_birth = form.cleaned_data.get('date_of_birth')
             phone = form.cleaned_data.get('phone')
             email = form.cleaned_data.get('email')
             consent_given = form.cleaned_data.get('consent_given')
-            pincode = form.cleaned_data.get('pincode')
 
-            # 1. Create Django User
+            # ✅ 1. Check if username already exists
+            if User.objects.filter(username=username).exists():
+                form.add_error('username', "This username is already taken. Please choose another.")
+                return render(request, "beneficiary_register.html", {"form": form})
+
+            # ✅ 2. (optional but recommended) check if phone is already used
+            if Beneficiary.objects.filter(phone=phone).exists():
+                form.add_error('phone', "This phone number is already registered.")
+                return render(request, "beneficiary_register.html", {"form": form})
+
+            # ✅ 3. Create user safely (no IntegrityError needed now)
             user = User.objects.create_user(username=username, password=password)
             if email:
                 user.email = email
                 user.save()
 
-            # 2. Create Profile with role = beneficiary
+            # 4. Create profile with role beneficiary
             Profile.objects.create(user=user, role="beneficiary")
 
-            # 3. Create Beneficiary entry
-            Beneficiary.objects.create(
+            # 5. Create Beneficiary record
+            ben = Beneficiary.objects.create(
                 user=user,
                 name=name,
                 age=age,
@@ -174,7 +224,6 @@ def beneficiary_register(request):
                 date_of_birth=date_of_birth,
                 phone=phone,
                 email=email,
-                location=location,
                 income_est=0,
                 estimated_monthly_income=0,
                 score=0,
@@ -182,18 +231,73 @@ def beneficiary_register(request):
                 need_band="unknown",
                 eligibility="unknown",
                 consent_given=consent_given,
-                pincode=pincode
             )
 
-            # 4. Auto login
-            login(request, user)
+            # 6. OTP – only for registration
+            otp = ben.generate_otp()
+            try:
+                send_otp_sms(phone, otp)
+            except Exception as e:
+                # cleanup if SMS fails
+                ben.delete()
+                user.delete()
+                messages.error(request, f"Failed to send OTP: {e}")
+                return render(request, "beneficiary_register.html", {"form": form})
 
-            # 5. Redirect to home
-            return redirect("/beneficiary/profile/")
+            # 7. store user id for verification step
+            request.session["pending_beneficiary_user_id"] = user.id
+
+            # 8. redirect to OTP page
+            return redirect("beneficiary_verify_otp")
     else:
         form = BeneficiaryRegisterForm()
 
     return render(request, "beneficiary_register.html", {"form": form})
+
+
+
+def beneficiary_verify_otp(request):
+    user_id = request.session.get("pending_beneficiary_user_id")
+    if not user_id:
+        # no pending user in session
+        return redirect("beneficiary_register")
+
+    user = get_object_or_404(User, id=user_id)
+    ben = Beneficiary.objects.filter(user=user).first()
+    if not ben:
+        return redirect("beneficiary_register")
+
+    if request.method == "POST":
+        otp_input = request.POST.get("otp")
+
+        if ben.is_otp_valid(otp_input):
+            ben.is_phone_verified = True
+            ben.otp_code = None   # clear OTP after success
+            ben.save(update_fields=["is_phone_verified", "otp_code"])
+
+            # Now login the user
+            login(request, user)
+
+            # Clear session
+            try:
+                del request.session["pending_beneficiary_user_id"]
+            except KeyError:
+                pass
+
+            return redirect("/beneficiary/profile/")
+
+        # invalid or expired OTP
+        return render(
+            request,
+            "beneficiary_verify_otp.html",
+            {"phone": ben.phone, "error": "Invalid or expired OTP. Please try again."},
+        )
+
+    return render(
+        request,
+        "beneficiary_verify_otp.html",
+        {"phone": ben.phone},
+    )
 
 
 
@@ -372,7 +476,7 @@ def officer_dashboard_stats(request):
     all_b = Beneficiary.objects.all()
     total = all_b.count()
     scored = [b for b in all_b if b.score is not None]
-    avg_score = sum(b.score for b in scored) / len(scored) if scored else 0
+    avg_score = sum(b.model_score for b in scored) / len(scored) if scored else 0
     high_risk = all_b.filter(risk_band="High Risk").count()
     low_risk = all_b.filter(risk_band="Low Risk").count()
     eligible = all_b.filter(eligibility="Eligible").count()
@@ -437,53 +541,24 @@ def officer_beneficiary_details(request, beneficiary_id):
     docs = BeneficiaryDocument.objects.filter(beneficiary=ben)
     loans = ben.loans.all()
     log = ben.ai_logs.all().order_by("-created_at").first()
-    
-    # Fetch case-specific details based on beneficiary's category
-    case1_details = None
-    case2_details = None
-    case2_loans = None
-    case3_details = None
-    case3_loans = None
-    case4_details = None
-    case4_loans = None
-    
-    try:
-        case1_details = ben.case1_details
-    except Case1Details.DoesNotExist:
-        pass
-    
-    try:
-        case2_details = ben.case2_details
-        case2_loans = case2_details.loans.all()
-    except Case2Details.DoesNotExist:
-        pass
-    
-    try:
-        case3_details = ben.case3_details
-        case3_loans = case3_details.loans.all()
-    except Case3Details.DoesNotExist:
-        pass
-    
-    try:
-        case4_details = ben.case4_details
-        case4_loans = case4_details.loans.all()
-    except Case4Details.DoesNotExist:
-        pass
-    
-    return render(request, "officer_beneficiary_details.html", {
-        "beneficiary": ben,
-        "documents": docs,
-        "loans": loans,
-        "ai_log": log,
-        "case1_details": case1_details,
-        "case2_details": case2_details,
-        "case2_loans": case2_loans,
-        "case3_details": case3_details,
-        "case3_loans": case3_loans,
-        "case4_details": case4_details,
-        "case4_loans": case4_loans,
-    })
 
+    
+    try:
+        case_details = ben.case_details 
+    except CaseDetails.DoesNotExist:
+        case_details = None
+
+    return render(
+        request,
+        "officer_beneficiary_details.html",
+        {
+            "beneficiary": ben,
+            "documents": docs,
+            "loans": loans,
+            "ai_log": log,
+            "case_details": case_details,   # 👈 single unified details object
+        },
+    )
 
 # ---------- Beneficiary endpoints ----------
 
@@ -535,7 +610,7 @@ def beneficiary_profile(request):
         "eligibility_label": ben.eligibility_label,
         "model_score": ben.model_score,
         "approval_flag": ben.approval_flag,
-        "score": ben.score,
+        "score": ben.model_score,
         "risk_band": ben.risk_band,
         "need_band": ben.need_band,
         "eligibility": ben.eligibility,
@@ -736,21 +811,9 @@ def beneficiary_edit(request):
             ben.save()
 
             # Redirect based on stored case_type
-            if ben.case_type == Beneficiary.CASE1:
-                return redirect('case1_details')
-            elif ben.case_type == Beneficiary.CASE2:
-                return redirect('case2_details')
-            elif ben.case_type == Beneficiary.CASE3:
-                return redirect('case3_details')
-            elif ben.case_type == Beneficiary.CASE4:
-                return redirect('case4_details')
-            else:
-                # fallback: stay on page and show category text
-                return render(
-                    request,
-                    "beneficiary_edit.html",
-                    {"form": form, "beneficiary": ben, "category": "Uncategorized"}
-                )
+            return redirect("case_details")
+
+            
 
     else:
         # GET: prefill form with existing data
@@ -1015,78 +1078,16 @@ def case1_input(request):
 
 
 
-@login_required
-def case1_details(request):
-    ben = get_object_or_404(Beneficiary, user=request.user)
-
-    if ben.case_type and ben.case_type != Beneficiary.CASE1:
-        return HttpResponseForbidden("You are not allowed to access Case 1 details.")
-
-    # Get existing details if they exist
-    try:
-        details = ben.case1_details
-    except Exception:
-        details = None
-
-    if request.method == "POST":
-        # Bind POST data
-        form = Case1DetailsForm(request.POST, instance=details)
-
-        if form.is_valid():
-            obj = form.save(commit=False)
-            obj.beneficiary = ben
-
-            # Map yes/no to True/False if this field is still used
-            pr = form.cleaned_data.get("payments_regularity")
-            if pr == "yes":
-                obj.payments_regularity = True
-            elif pr == "no":
-                obj.payments_regularity = False
-
-            obj.save()
-
-            # ✅ redirect ONLY after successful save
-            return redirect("beneficiary_edit")
-
-        else:
-            # ❗ Do NOT redirect; fall through and re-render with errors
-            print("CASE1 ERRORS:", form.errors)
-
-    else:
-        # GET request → show existing data or empty form
-        form = Case1DetailsForm(instance=details)
-
-    # ✅ In both GET and invalid POST, render template with the current form
-    return render(request, "case1_details.html", {"form": form})
-
-
-from .models import Case2Details  # make sure this import exists at the top
+from .models import CaseDetails  # ensure imported
 
 @login_required
-def case2_details(request):
-    ben = get_object_or_404(Beneficiary, user=request.user)
-    if ben.case_type and ben.case_type != Beneficiary.CASE2:
-        return HttpResponseForbidden("You are not allowed to access Case 2 details.")
-
-    details, created = Case2Details.objects.get_or_create(beneficiary=ben)
-
-    if request.method == "POST":
-        form = Case2DetailsForm(request.POST, instance=details)
-
-        if form.is_valid():
-            obj = form.save(commit=False)
-            obj.beneficiary = ben
-            obj.save()
-            return redirect("beneficiary_edit")
-        print("CASE2 ERRORS:", form.errors)
-
-    else:
-        form = Case2DetailsForm(instance=details)
-    return render(request, "case2_details.html", {"form": form})
-
-
-@login_required
-def case2_add_loan(request):
+def case_details(request):
+    """
+    Unified 'Other details' page for all cases.
+    - Shows case type at the top
+    - Uses one CaseDetails model + form
+    - Fields not relevant for this case will be disabled/blank
+    """
     profile = getattr(request.user, "profile", None)
     if not profile or profile.role != "beneficiary":
         return HttpResponseForbidden("Beneficiary access required")
@@ -1095,165 +1096,84 @@ def case2_add_loan(request):
     if not ben:
         return HttpResponseForbidden("Beneficiary profile not found")
 
-    try:
-        details = ben.case2_details
-    except Case2Details.DoesNotExist:
-        details = Case2Details.objects.create(beneficiary=ben)
+    # ensure we have an up-to-date case_type on beneficiary
+    case_type = ben.case_type or ben.compute_case_type()
+    ben.case_type = case_type
+    ben.save(update_fields=["case_type"])
 
-    if request.method == 'POST':
-        form = Case2LoanForm(request.POST)
-        if form.is_valid():
-            loan = form.save(commit=False)
-            loan.case2 = details
-            if not loan.loan_number:
-                loan.loan_number = details.loans.count() + 1
-            loan.save()
-            return redirect('case2_details')
-    else:
-        initial = {'loan_number': details.loans.count() + 1}
-        form = Case2LoanForm(initial=initial)
-
-    return render(request, "case2_add_loan.html", {"form": form, "beneficiary": ben})
-
-
-@login_required
-def case3_details(request):
-    ben = get_object_or_404(Beneficiary, user=request.user)
-    if ben.case_type and ben.case_type != Beneficiary.CASE4:
-        return HttpResponseForbidden("You are not allowed to access Case 4 details.")
-    try:
-        details = ben.case3_details
-    except Exception:
-        details = None
+    # get or create unified details row
+    details, _ = CaseDetails.objects.get_or_create(
+        beneficiary=ben,
+        defaults={"case_type": case_type},
+    )
+    # keep snapshot in sync
+    if details.case_type != case_type:
+        details.case_type = case_type
+        details.save(update_fields=["case_type"])
 
     if request.method == "POST":
-        form = Case3DetailsForm(request.POST, instance=details)
-
+        form = CaseDetailsForm(request.POST, instance=details, case_type=case_type)
         if form.is_valid():
             obj = form.save(commit=False)
-            obj.beneficiary = ben
+            obj.case_type = case_type
             obj.save()
-        else:
-            print("CASE3 ERRORS:", form.errors)
-        return redirect("beneficiary_edit")
-    form = Case3DetailsForm(instance=details)
-    return render(request, "case3_details.html", {"form": form})
-
-
-
-@login_required
-def case3_add_loan(request):
-    profile = getattr(request.user, "profile", None)
-    if not profile or profile.role != "beneficiary":
-        return HttpResponseForbidden("Beneficiary access required")
-
-    ben = Beneficiary.objects.filter(user=request.user).first()
-    if not ben:
-        return HttpResponseForbidden("Beneficiary profile not found")
-
-    try:
-        details = ben.case3_details
-    except Case3Details.DoesNotExist:
-        details = Case3Details.objects.create(beneficiary=ben)
-
-    if request.method == 'POST':
-        form = Case3LoanForm(request.POST)
-        if form.is_valid():
-            loan = form.save(commit=False)
-            loan.case3 = details
-            if not loan.loan_number:
-                loan.loan_number = details.loans.count() + 1
-            loan.save()
-            return redirect('case3_details')
+            # recompute income etc using new unified model
+            auto_compute_income_from_details(ben)
+            return redirect("beneficiary_profile")
     else:
-        initial = {'loan_number': details.loans.count() + 1}
-        form = Case3LoanForm(initial=initial)
+        form = CaseDetailsForm(instance=details, case_type=case_type)
 
-    return render(request, "case3_add_loan.html", {"form": form, "beneficiary": ben})
-
-
-@login_required
-def case4_details(request):
-    ben = get_object_or_404(Beneficiary, user=request.user)
-    if ben.case_type and ben.case_type != Beneficiary.CASE4:
-        return HttpResponseForbidden("You are not allowed to access Case 4 details.")
-    try:
-        details = ben.case4_details
-    except Exception:
-        details = None
-
-    if request.method == "POST":
-        form = Case4DetailsForm(request.POST, instance=details)
-
-        if form.is_valid():
-            obj = form.save(commit=False)
-            obj.beneficiary = ben
-            obj.save()
-        else:
-            print("CASE4 ERRORS:", form.errors)
-        return redirect("beneficiary_edit")
-    form = Case4DetailsForm(instance=details)
-    return render(request, "case4_details.html", {"form": form})
+    return render(
+        request,
+        "case_details.html",
+        {
+            "beneficiary": ben,
+            "case_type": case_type,
+            "form": form,
+        },
+    )
 
 
-
-@login_required
-def case4_add_loan(request):
-    profile = getattr(request.user, "profile", None)
-    if not profile or profile.role != "beneficiary":
-        return HttpResponseForbidden("Beneficiary access required")
-
-    ben = Beneficiary.objects.filter(user=request.user).first()
-    if not ben:
-        return HttpResponseForbidden("Beneficiary profile not found")
-
-    try:
-        details = ben.case4_details
-    except Case4Details.DoesNotExist:
-        details = Case4Details.objects.create(beneficiary=ben)
-
-    if request.method == 'POST':
-        form = Case4LoanForm(request.POST)
-        if form.is_valid():
-            loan = form.save(commit=False)
-            loan.case4 = details
-            if not loan.loan_number:
-                loan.loan_number = details.loans.count() + 1
-            loan.save()
-            return redirect('case4_details')
-    else:
-        initial = {'loan_number': details.loans.count() + 1}
-        form = Case4LoanForm(initial=initial)
-
-    return render(request, "case4_add_loan.html", {"form": form, "beneficiary": ben})
 
 
 #----------Loan Application----------
 
 @login_required
 def beneficiary_apply_loan(request):
+    # Block officers
     profile = getattr(request.user, "profile", None)
-    if not profile or profile.role != "beneficiary":
-        return HttpResponseForbidden("Beneficiary access required")
+    if profile and profile.role == "officer":
+        return HttpResponseForbidden("Officer access required")
 
+    # User must have a Beneficiary record
     ben = Beneficiary.objects.filter(user=request.user).first()
     if not ben:
         return HttpResponseForbidden("Beneficiary profile not found")
 
     if request.method == "POST":
+        loan_type = request.POST.get("loan_type")
         loan_amount = request.POST.get("loan_amount")
         tenure_months = request.POST.get("tenure_months")
         phone = request.POST.get("phone")
         email = request.POST.get("email")
 
-        # basic validation
-        if not (loan_amount and tenure_months and phone and email):
-            return render(request, "beneficiary_apply_loan.html", {
-                "beneficiary": ben,
-                "error": "All fields are required."
-            })
+        # Basic validation
+        if not (loan_type and loan_amount and tenure_months and phone and email):
+            return render(
+                request,
+                "beneficiary_apply_loan.html",
+                {
+                    "beneficiary": ben,
+                    "error": "All fields are required.",
+                    "loan_type": loan_type,
+                    "loan_amount": loan_amount,
+                    "tenure_months": tenure_months,
+                    "phone": phone,
+                    "email": email,
+                },
+            )
 
-        # Ensure mandatory documents are uploaded before allowing application
+        # Ensure mandatory documents are uploaded
         required = ["AADHAAR", "PAN", "ELECTRICITY", "MOBILE"]
         missing = []
         display = {
@@ -1268,13 +1188,25 @@ def beneficiary_apply_loan(request):
                 missing.append(display.get(dt, dt))
 
         if missing:
-            return render(request, "beneficiary_apply_loan.html", {
-                "beneficiary": ben,
-                "error": "Cannot apply: missing required documents: " + ", ".join(missing)
-            })
+            return render(
+                request,
+                "beneficiary_apply_loan.html",
+                {
+                    "beneficiary": ben,
+                    "error": "Cannot apply: missing required documents: "
+                             + ", ".join(missing),
+                    "loan_type": loan_type,
+                    "loan_amount": loan_amount,
+                    "tenure_months": tenure_months,
+                    "phone": phone,
+                    "email": email,
+                },
+            )
 
+        # Create the loan application
         LoanApplication.objects.create(
             beneficiary=ben,
+            loan_type=loan_type,          # 👈 ADDED
             loan_amount=loan_amount,
             tenure_months=tenure_months,
             phone=phone,
@@ -1282,14 +1214,28 @@ def beneficiary_apply_loan(request):
             status=LoanApplication.STATUS_PENDING,
         )
 
-    return render(request, "beneficiary_loan_submitted.html", {
-            "beneficiary": ben
-        })
+        # Success page
+        return render(
+            request,
+            "beneficiary_loan_submitted.html",
+            {"beneficiary": ben},
+        )
 
-    # GET: show empty form (or you can prefill email/phone)
-    return render(request, "beneficiary_apply_loan.html", {
-        "beneficiary": ben
-    })
+    # GET: show apply form
+    return render(
+        request,
+        "beneficiary_apply_loan.html",
+        {
+            "beneficiary": ben,
+            "loan_type": "",
+            "loan_amount": "",
+            "tenure_months": "",
+            "phone": ben.phone or "",
+            "email": ben.email or "",
+        },
+    )
+
+
 
 
 #-------------loan request to the officer----------
@@ -1577,3 +1523,188 @@ def beneficiary_score(request):
     )
 
 
+#---------- Sync govt data via API ----------
+
+@login_required
+def sync_external_data(request):
+    """
+    For logged-in beneficiary:
+    - Use their phone number
+    - Call Project A API
+    - Update Beneficiary + Case1Details with govt data
+    """
+    profile = getattr(request.user, "profile", None)
+    if not profile or profile.role != "beneficiary":
+        return HttpResponseForbidden("Beneficiary access required")
+
+    ben = Beneficiary.objects.filter(user=request.user).first()
+    if not ben:
+        return HttpResponseForbidden("Beneficiary profile not found")
+
+    phone = ben.phone
+    if not phone:
+        return HttpResponseForbidden("No phone number saved in your profile")
+
+    # ------------- Call Project A -------------
+    try:
+        data = fetch_citizen_profile(phone)
+    except Exception as e:
+        return render(
+            request,
+            "beneficiary_home.html",
+            {"beneficiary": ben, "error": f"Error calling govt API: {e}"},
+        )
+
+    # ------------- 1. AADHAR basic info -------------
+    aadhar = data.get("aadhar_profile") or {}
+    if aadhar:
+        full_name = aadhar.get("full_name")
+        if full_name:
+            ben.name = full_name
+
+        gender = aadhar.get("gender")  # "M"/"F"/"O"
+        if gender:
+            g = gender.upper()[0]
+            if g == "M":
+                ben.gender = "male"
+            elif g == "F":
+                ben.gender = "female"
+            else:
+                ben.gender = "other"
+
+        dob = aadhar.get("date_of_birth")  # "YYYY-MM-DD"
+        if dob:
+            ben.date_of_birth = dob
+
+        pincode = aadhar.get("pincode")
+        if pincode:
+            ben.pincode = pincode
+
+        addr = aadhar.get("address")
+        if addr:
+            ben.location = addr
+
+        email = aadhar.get("email")
+        if email and not ben.email:
+            ben.email = email
+
+    # ------------- 2. UIDAI income & property -------------
+    uidai = data.get("uidai_profile") or {}
+    if uidai:
+        annual_income = uidai.get("annual_income")
+        if annual_income:
+            try:
+                annual = float(annual_income)
+                ben.estimated_monthly_income = round(annual / 12.0, 2)
+            except Exception:
+                pass
+        # if you later add a "total_properties_value" field on Case1/Case3,
+        # you can map uidai.get("property_value") there.
+
+    # ------------- 3. Ensure unified CaseDetails exists -------------
+    from .models import CaseDetails  # at top of file or here
+
+    details, _created = CaseDetails.objects.get_or_create(
+        beneficiary=ben,
+        defaults={"case_type": ben.case_type or ben.compute_case_type()},
+    )
+    # keep snapshot
+    if not details.case_type:
+        details.case_type = ben.case_type or ben.compute_case_type()
+
+    # ------------- 4. Electricity -------------
+    electricity_list = data.get("electricity") or []
+    if electricity_list:
+        ele = electricity_list[0]
+        last_ele = ele.get("last_month_bill") or 0
+        try:
+            details.electricity_bill = float(last_ele)
+        except Exception:
+            pass
+        # if you later want: second_last_month_bill, third_last_month_bill, avg_bill_last_12_months
+        # you can store them in a JSONField on CaseDetails.
+
+    # ------------- 5. Telecom -------------
+    telecom = data.get("telecom") or {}
+    if telecom:
+        last_mob = telecom.get("last_month_bill") or 0
+        try:
+            details.average_mobile_bill = float(last_mob)
+        except Exception:
+            pass
+
+    # ------------- 6. Gas -------------
+    gas_list = data.get("gas") or []
+    if gas_list:
+        g = gas_list[0]
+        last_gas = g.get("last_bill_amount") or 0
+        try:
+            details.gas_bill = float(last_gas)
+        except Exception:
+            pass
+
+        freq = g.get("frequency")
+        if freq is not None:
+            details.gas_frequency = str(freq)
+
+    # ------------- 7. Banking -------------
+    banking = data.get("banking") or {}
+    if banking:
+        avg_balance = banking.get("avg_balance")
+        if avg_balance is not None:
+            try:
+                details.average_bank_balance = float(avg_balance)
+            except Exception:
+                pass
+
+        cash_in = banking.get("cash_inflow")
+        if cash_in is not None:
+            try:
+                details.cash_inflow = float(cash_in)
+            except Exception:
+                pass
+
+        cash_out = banking.get("cash_outflow")
+        if cash_out is not None:
+            try:
+                details.cash_outflow = float(cash_out)
+            except Exception:
+                pass
+
+        num_loans = banking.get("number_of_loans")
+        if num_loans is not None:
+            ben.number_of_loans = int(num_loans)
+            details.number_of_active_loans = int(num_loans)
+
+        due_delays = banking.get("number_of_due_delays")
+        if due_delays is not None:
+            ben.emi_due_delays = int(due_delays)
+
+        # total_emi_per_month exists in JSON: you can add a field later if needed.
+
+    # ------------- 8. Property value → CaseDetails -------------
+    if uidai:
+        prop_val = uidai.get("property_value")
+        if prop_val is not None:
+            try:
+                details.total_properties_value = float(prop_val)
+            except Exception:
+                pass
+
+    # ------------- 9. Save + recompute income bands -------------
+    ben.save()
+    details.save()
+
+    auto_compute_income_from_details(ben)
+
+    return redirect("beneficiary_profile")
+
+
+#-----------otp verification----------
+def send_otp_sms(phone, otp):
+    client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
+    client.messages.create(
+        body=f"Your verification code is {otp}",
+        from_=settings.TWILIO_FROM_PHONE,
+        to=phone,
+    )

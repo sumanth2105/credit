@@ -3,8 +3,15 @@ from .models import (
     Profile, Beneficiary, LoanHistory, ConsumptionData,
     AIScoreLog, BeneficiaryDocument, LoanApplication
 )
-from .models import Case1Details, Case2Details, Case2Loan, Case3Details, Case3Loan
-from .models import Case4Details, Case4Loan
+from django.contrib import admin
+from .models import (
+    Beneficiary,
+    Profile,
+    LoanApplication,
+    CaseDetails,
+
+)
+
 
 @admin.register(Profile)
 class ProfileAdmin(admin.ModelAdmin):
@@ -54,43 +61,25 @@ class LoanApplicationAdmin(admin.ModelAdmin):
     search_fields = ("beneficiary__name", "beneficiary__user__username", "email", "phone")
 
 
-@admin.register(Case1Details)
-class Case1DetailsAdmin(admin.ModelAdmin):
-    list_display = ("beneficiary", "electricity_units", "average_bank_balance", "created_at")
-    search_fields = ("beneficiary__name",)
+@admin.register(CaseDetails)
+class CaseDetailsAdmin(admin.ModelAdmin):
+    list_display = (
+        "beneficiary",
+        "case_type",
+        "average_bank_balance",
+        "number_of_active_loans",
+        "total_emi_per_month",
+        "number_of_due_delays",
+        "number_of_active_loans",
+        "total_emi_per_month",   
+        "number_of_due_delays",
+        "created_at",
+    )
+    list_filter = ("case_type",)
+    search_fields = (
+        "beneficiary__name",
+        "beneficiary__phone_number",
+        "beneficiary__aadhar_number",
+    )
 
-
-@admin.register(Case2Details)
-class Case2DetailsAdmin(admin.ModelAdmin):
-    list_display = ("beneficiary", "number_of_active_loans", "last_6_months_avg_bank_balance", "created_at")
-    search_fields = ("beneficiary__name",)
-
-
-@admin.register(Case2Loan)
-class Case2LoanAdmin(admin.ModelAdmin):
-    list_display = ("case2", "loan_number", "loan_amount", "emi", "last_emi_date")
-    search_fields = ("case2__beneficiary__name",)
-
-
-@admin.register(Case3Details)
-class Case3DetailsAdmin(admin.ModelAdmin):
-    list_display = ("beneficiary", "number_of_active_loans", "last_6_months_avg_bank_balance", "created_at")
-    search_fields = ("beneficiary__name",)
-
-
-@admin.register(Case3Loan)
-class Case3LoanAdmin(admin.ModelAdmin):
-    list_display = ("case3", "loan_number", "loan_amount", "emi", "last_emi_date")
-    search_fields = ("case3__beneficiary__name",)
-
-
-@admin.register(Case4Details)
-class Case4DetailsAdmin(admin.ModelAdmin):
-    list_display = ("beneficiary", "number_of_active_loans", "last_6_months_avg_bank_balance", "created_at")
-    search_fields = ("beneficiary__name",)
-
-
-@admin.register(Case4Loan)
-class Case4LoanAdmin(admin.ModelAdmin):
-    list_display = ("case4", "loan_number", "loan_amount", "emi", "last_emi_date")
-    search_fields = ("case4__beneficiary__name",)
+    

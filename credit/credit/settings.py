@@ -14,6 +14,9 @@ import os
 
 from pathlib import Path
 
+from django.utils.translation import gettext_lazy as _
+
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -46,11 +49,14 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'django.middleware.locale.LocaleMiddleware', 
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+ 
+ 
 ]
 
 ROOT_URLCONF = 'credit.urls'
@@ -107,10 +113,51 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 
+TWILIO_ACCOUNT_SID = "AC903ca340f30b785d2a5857ff8a4753ab"
+TWILIO_AUTH_TOKEN = "ff47f28372b0faf1c135e5e87ab79d6a"
+TWILIO_FROM_PHONE = "+13159083763"  
+
+
+
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+
+LANGUAGE_CODE = 'en'
+USE_I18N = True
+
+LANGUAGES = [
+    ('as', _('Assamese')),
+    ('bn', _('Bengali')),
+    ('brx', _('Bodo')),
+    ('doi', _('Dogri')),
+    ('en', _('English')),
+    ('gu', _('Gujarati')),
+    ('hi', _('Hindi')),
+    ('kn', _('Kannada')),
+    ('ks', _('Kashmiri')),
+    ('kok', _('Konkani')),
+    ('mai', _('Maithili')),
+    ('ml', _('Malayalam')),
+    ('mni', _('Manipuri')),
+    ('mr', _('Marathi')),
+    ('ne', _('Nepali')),
+    ('or', _('Odia')),
+    ('pa', _('Punjabi')),
+    ('sa', _('Sanskrit')),
+    ('sat', _('Santali')),
+    ('sd', _('Sindhi')),
+    ('ta', _('Tamil')),
+    ('te', _('Telugu')),
+    ('ur', _('Urdu')),
+]
+
+LOCALE_PATHS = [
+    BASE_DIR / 'locale',
+]
+
+
+
 
 TIME_ZONE = 'UTC'
 

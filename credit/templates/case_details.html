@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Other Details</h2>
+
+<p><strong>Case Type:</strong> {{ case_type }}</p>
+
+<form method="post">
+    {% csrf_token %}
+    <table>
+        {% for field in form %}
+            {% if not field.field.widget.attrs.disabled %}
+                <tr>
+                    <th>{{ field.label_tag }}</th>
+                    <td>
+                        {{ field }}
+                        {% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}
+                        {% for error in field.errors %}
+                            <div class="error">{{ error }}</div>
+                        {% endfor %}
+                    </td>
+                </tr>
+            {% endif %}
+        {% endfor %}
+    </table>
+    <button type="submit">Save</button>
+</form>
+{% endblock %}

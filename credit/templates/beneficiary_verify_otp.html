@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Verify OTP</title>
+</head>
+<body>
+  {% if error %}
+    <p style="color:red">{{ error }}</p>
+  {% endif %}
+
+  <h2>Verify your phone</h2>
+  <p>We sent an OTP to {{ phone }}</p>
+
+  <form method="post">
+    {% csrf_token %}
+    <label>Enter OTP:</label><br>
+    <input type="text" name="otp" maxlength="6" required><br><br>
+    <button type="submit">Verify</button>
+  </form>
+</body>
+</html>

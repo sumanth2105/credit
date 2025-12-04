@@ -17,6 +17,29 @@
     </style>
 </head>
 <body>
+
+{% load i18n %}
+
+<div class="language-selector">
+    <form action="{% url 'set_language' %}" method="post">
+        {% csrf_token %}
+        <input name="next" type="hidden" value="{{ request.path }}">
+
+        <select name="language" onchange="this.form.submit()">
+            {% get_current_language as LANGUAGE_CODE %}
+            {% get_available_languages as LANGUAGES %}
+            
+            {# LANGUAGES is a list of (code, name) from settings.LANGUAGES #}
+            {% for code, name in LANGUAGES %}
+                <option value="{{ code }}" {% if code == LANGUAGE_CODE %}selected{% endif %}>
+                    {{ name }}
+                </option>
+            {% endfor %}
+        </select>
+    </form>
+</div>
+
+
     <div class="container">
         <h2>Welcome, {{ name }}!</h2>
 
@@ -53,7 +76,10 @@
 
         <div class="button-group">
             <a href="/beneficiary/profile/">
-                <button>Refresh Profile</button>
+                <button>Profile</button>
+            </a>
+            <a href="{% url 'sync_external_data' %}" class="btn btn-primary">
+                Fetch Govt Data (Aadhaar / Bills / Banking)
             </a>
 
             <a href="/beneficiary/edit/">

@@ -96,6 +96,9 @@ class Beneficiary(models.Model):
     officer = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="uploaded_beneficiaries")
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
+    otp_code = models.CharField(max_length=6, null=True, blank=True)
+    otp_created_at = models.DateTimeField(null=True, blank=True)
+    is_phone_verified = models.BooleanField(default=False)
 
     number_of_loans = models.PositiveIntegerField(
         null=True, blank=True, help_text="Total number of loans"
@@ -127,6 +130,7 @@ class Beneficiary(models.Model):
         null=True,
         blank=True,
         help_text="Reason for changing number of loans or EMI due delays after first submission"
+    
     )
 
 
@@ -137,17 +141,126 @@ class Beneficiary(models.Model):
        
         n = self.number_of_loans or 0
         d = self.emi_due_delays or 0
+    
 
-        if n == 0:
-            return self.CASE1
-        elif n <= 3 and d <= 2:
-            return self.CASE2
-        elif n > 3:
-            return self.CASE3
-        elif n <= 3 and d > 2:
-            return self.CASE4
-        else:
-            return None
+    def generate_otp(self):
+        import random
+        self.otp_code = f"{random.randint(100000, 999999)}"
+        self.otp_created_at = timezone.now()
+        self.save(update_fields=["otp_code", "otp_created_at"])
+        return self.otp_code
+
+    
+    def is_otp_valid(self, otp_input, expiry_minutes=5):
+        if not self.otp_code or not otp_input:
+            return False
+        if str(self.otp_code) != str(otp_input).strip():
+            return False
+        if not self.otp_created_at:
+            return False
+        if timezone.now() > self.otp_created_at + timezone.timedelta(minutes=expiry_minutes):
+            return False
+        return True
+
+def compute_case_type(self):
+    n = self.number_of_loans or 0
+    d = self.emi_due_delays or 0
+    if n == 0 and d == 0:
+        return self.CASE1
+    if n == 0 and d > 0:
+        return self.CASE4
+    if n <= 3 and d <= 2:
+        return self.CASE2
+    if n > 3:
+        return self.CASE3
+
+    return None
+
+
+
+# NEW UNIFIED MODEL
+class CaseDetails(models.Model):
+    """
+    Unified details model for all case types (CASE1–CASE4).
+
+    One row per Beneficiary, with all financial/utility fields.
+    Fields that are not used for a given case-type will stay NULL/blank.
+    """
+    beneficiary = models.OneToOneField(
+        Beneficiary,
+        on_delete=models.CASCADE,
+        related_name="case_details",
+    )
+
+    # Snapshot of which case this row is currently being used for
+    case_type = models.CharField(
+        max_length=10,
+        choices=Beneficiary.CASE_TYPE_CHOICES,
+        null=True,
+        blank=True,
+    )
+
+    # ---- Utility bills ----
+    electricity_units = models.PositiveIntegerField(null=True, blank=True)
+    electricity_bill = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    payments_regularity = models.BooleanField(
+        null=True,
+        blank=True,
+        help_text="Are payments regular? (Yes/No)",
+    )
+    average_mobile_bill = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    gas_bill = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    gas_frequency = models.CharField(max_length=50, null=True, blank=True)
+
+    # ---- Employment / income behaviour ----
+    employment_type = models.CharField(max_length=150, null=True, blank=True)
+    working_days_per_month = models.PositiveIntegerField(null=True, blank=True)
+    digital_payment_frequency = models.CharField(
+        max_length=10,
+        choices=[
+            ("low", "Low"),
+            ("medium", "Medium"),
+            ("high", "High"),
+        ],
+        null=True,
+        blank=True,
+    )
+
+    # ---- Banking ----
+    average_bank_balance = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    cash_inflow = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    cash_outflow = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    transactions_per_month = models.PositiveIntegerField(null=True, blank=True)
+    last_6_months_avg_bank_balance = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    number_of_active_loans = models.PositiveIntegerField(null=True, blank=True)
+
+    # ---- Extra wealth / risk info (from Case3/4 union) ----
+    total_properties_value = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
+    wealth_index = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
+    any_business = models.BooleanField(null=True, blank=True)
+    insurance_coverage = models.BooleanField(null=True, blank=True)
+    luxury_expenditures = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    outstanding_bank_balance = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    loan_purpose = models.CharField(max_length=256, null=True, blank=True)
+    loan_history_cibil = models.TextField(null=True, blank=True)
+    reasons_for_delay = models.TextField(null=True, blank=True)
+    number_of_active_loans = models.PositiveIntegerField(
+        null=True, blank=True
+    )
+    total_emi_per_month = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True
+    )
+    number_of_due_delays = models.PositiveIntegerField(
+        null=True, blank=True
+    )
+
+    created_at = models.DateTimeField(default=timezone.now)
+
+    def __str__(self):
+        return f"CaseDetails for {self.beneficiary.name} ({self.beneficiary.id})"
+
+
+
 
 class LoanHistory(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -274,226 +387,3 @@ class LoanApplication(models.Model):
         return f"{self.beneficiary.name} - {self.loan_amount} ({self.status})"
 
 
-class Case1Details(models.Model):
-    DIGITAL_FREQ_CHOICES = [
-        ("low", "Low"),
-        ("medium", "Medium"),
-        ("high", "High"),
-    ]
-
-    beneficiary = models.OneToOneField(
-        Beneficiary,
-        on_delete=models.CASCADE,
-        related_name="case1_details",
-    )
-    electricity_units = models.PositiveIntegerField(null=True, blank=True)
-    electricity_bill = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    payments_regularity = models.BooleanField(null=True, blank=True, help_text="Are payments regular? (Yes/No)")
-    average_mobile_bill = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    gas_bill = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    gas_frequency = models.CharField(max_length=50, null=True, blank=True)
-    employment_type = models.CharField(max_length=150, null=True, blank=True)
-    working_days_per_month = models.PositiveIntegerField(null=True, blank=True)
-    digital_payment_frequency = models.CharField(max_length=10, choices=DIGITAL_FREQ_CHOICES, null=True, blank=True)
-    average_bank_balance = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
-    cash_inflow = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
-    cash_outflow = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
-    transactions_per_month = models.PositiveIntegerField(null=True, blank=True)
-    created_at = models.DateTimeField(default=timezone.now)
-
-    def __str__(self):
-        return f"Case1Details for {self.beneficiary.name} ({self.beneficiary.id})"
-
-
-class Case2Details(models.Model):
-    DIGITAL_FREQ_CHOICES = [
-        ("low", "Low"),
-        ("medium", "Medium"),
-        ("high", "High"),
-    ]
-
-    beneficiary = models.OneToOneField(
-        Beneficiary,
-        on_delete=models.CASCADE,
-        related_name="case2_details",
-    )
-    electricity_units = models.PositiveIntegerField(null=True, blank=True)
-    electricity_bill = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    payments_regularity = models.BooleanField(null=True, blank=True, help_text="Are payments regular? (Yes/No)")
-    average_mobile_bill = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    gas_bill = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    gas_frequency = models.CharField(max_length=50, null=True, blank=True)
-    employment_type = models.CharField(max_length=150, null=True, blank=True)
-    working_days_per_month = models.PositiveIntegerField(null=True, blank=True)
-    digital_payment_frequency = models.CharField(max_length=10, choices=DIGITAL_FREQ_CHOICES, null=True, blank=True)
-    average_bank_balance = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
-    cash_inflow = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
-    cash_outflow = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
-    transactions_per_month = models.PositiveIntegerField(null=True, blank=True)
-    last_6_months_avg_bank_balance = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
-    number_of_active_loans = models.PositiveIntegerField(null=True, blank=True)
-    created_at = models.DateTimeField(default=timezone.now)
-
-    def __str__(self):
-        return f"Case2Details for {self.beneficiary.name} ({self.beneficiary.id})"
-
-
-class Case2Loan(models.Model):
-    """Represents an active loan entry attached to a Case2Details record.
-
-    Multiple `Case2Loan` objects can be associated with a `Case2Details` to represent
-    loan1, loan2, etc.
-    """
-    case2 = models.ForeignKey(
-        Case2Details,
-        on_delete=models.CASCADE,
-        related_name='loans'
-    )
-    loan_number = models.PositiveIntegerField(default=1, help_text="1 for loan1, 2 for loan2, etc.")
-    loan_type = models.CharField(max_length=150, null=True, blank=True)
-    loan_amount = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
-    loan_sanction_date = models.DateField(null=True, blank=True)
-    tenure_months = models.PositiveIntegerField(null=True, blank=True)
-    emi = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
-    last_emi_date = models.DateField(null=True, blank=True)
-    created_at = models.DateTimeField(default=timezone.now)
-
-    class Meta:
-        ordering = ['loan_number']
-
-    def __str__(self):
-        return f"Loan {self.loan_number} for {self.case2.beneficiary.name} - {self.loan_amount}"
-
-
-class Case3Details(models.Model):
-    """Detailed fields captured for beneficiaries classified as Case 3.
-
-    Linked one-to-one with `Beneficiary` so you can access via
-    `beneficiary.case3_details`.
-    """
-    DIGITAL_FREQ_CHOICES = [
-        ("low", "Low"),
-        ("medium", "Medium"),
-        ("high", "High"),
-    ]
-
-    beneficiary = models.OneToOneField(
-        Beneficiary,
-        on_delete=models.CASCADE,
-        related_name="case3_details",
-    )
-    electricity_units = models.PositiveIntegerField(null=True, blank=True)
-    electricity_bill = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    payments_regularity = models.BooleanField(null=True, blank=True, help_text="Are payments regular? (Yes/No)")
-    average_mobile_bill = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    gas_bill = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    gas_frequency = models.CharField(max_length=50, null=True, blank=True)
-    employment_type = models.CharField(max_length=150, null=True, blank=True)
-    working_days_per_month = models.PositiveIntegerField(null=True, blank=True)
-    digital_payment_frequency = models.CharField(max_length=10, choices=DIGITAL_FREQ_CHOICES, null=True, blank=True)
-    average_bank_balance = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
-    cash_inflow = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
-    cash_outflow = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
-    transactions_per_month = models.PositiveIntegerField(null=True, blank=True)
-    last_6_months_avg_bank_balance = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
-    number_of_active_loans = models.PositiveIntegerField(null=True, blank=True)
-    total_properties_value = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
-    wealth_index = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
-    any_business = models.BooleanField(null=True, blank=True)
-    insurance_coverage = models.BooleanField(null=True, blank=True)
-    luxury_expenditures = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
-    outstanding_bank_balance = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
-    loan_purpose = models.CharField(max_length=256, null=True, blank=True)
-    loan_history_cibil = models.TextField(null=True, blank=True)
-    created_at = models.DateTimeField(default=timezone.now)
-
-    def __str__(self):
-        return f"Case3Details for {self.beneficiary.name} ({self.beneficiary.id})"
-
-
-class Case3Loan(models.Model):
-    """Loan entries attached to Case3Details. Multiple entries allowed."""
-    case3 = models.ForeignKey(
-        Case3Details,
-        on_delete=models.CASCADE,
-        related_name='loans'
-    )
-    loan_number = models.PositiveIntegerField(default=1, help_text="1 for loan1, 2 for loan2, etc.")
-    loan_type = models.CharField(max_length=150, null=True, blank=True)
-    loan_amount = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
-    loan_sanction_date = models.DateField(null=True, blank=True)
-    tenure_months = models.PositiveIntegerField(null=True, blank=True)
-    emi = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
-    last_emi_date = models.DateField(null=True, blank=True)
-    outstanding_bank_balance = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
-    loan_purpose = models.CharField(max_length=256, null=True, blank=True)
-    loan_history_cibil = models.TextField(null=True, blank=True)
-    created_at = models.DateTimeField(default=timezone.now)
-
-    class Meta:
-        ordering = ['loan_number']
-
-    def __str__(self):
-        return f"Case3 Loan {self.loan_number} for {self.case3.beneficiary.name} - {self.loan_amount}"
-
-
-class Case4Details(models.Model):
-    """Detailed fields captured for beneficiaries classified as Case 4.
-
-    Linked one-to-one with `Beneficiary` so you can access via
-    `beneficiary.case4_details`.
-    """
-    DIGITAL_FREQ_CHOICES = [
-        ("low", "Low"),
-        ("medium", "Medium"),
-        ("high", "High"),
-    ]
-
-    beneficiary = models.OneToOneField(
-        Beneficiary,
-        on_delete=models.CASCADE,
-        related_name="case4_details",
-    )
-    electricity_units = models.PositiveIntegerField(null=True, blank=True)
-    electricity_bill = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    payments_regularity = models.BooleanField(null=True, blank=True, help_text="Are payments regular? (Yes/No)")
-    average_mobile_bill = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    gas_bill = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    gas_frequency = models.CharField(max_length=50, null=True, blank=True)
-    employment_type = models.CharField(max_length=150, null=True, blank=True)
-    working_days_per_month = models.PositiveIntegerField(null=True, blank=True)
-    digital_payment_frequency = models.CharField(max_length=10, choices=DIGITAL_FREQ_CHOICES, null=True, blank=True)
-    average_bank_balance = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
-    cash_inflow = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
-    cash_outflow = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
-    transactions_per_month = models.PositiveIntegerField(null=True, blank=True)
-    last_6_months_avg_bank_balance = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
-    reasons_for_delay = models.TextField(null=True, blank=True)
-    number_of_active_loans = models.PositiveIntegerField(null=True, blank=True)
-    created_at = models.DateTimeField(default=timezone.now)
-
-    def __str__(self):
-        return f"Case4Details for {self.beneficiary.name} ({self.beneficiary.id})"
-
-
-class Case4Loan(models.Model):
-    """Loan entries attached to Case4Details. Multiple entries allowed."""
-    case4 = models.ForeignKey(
-        Case4Details,
-        on_delete=models.CASCADE,
-        related_name='loans'
-    )
-    loan_number = models.PositiveIntegerField(default=1, help_text="1 for loan1, 2 for loan2, etc.")
-    loan_type = models.CharField(max_length=150, null=True, blank=True)
-    loan_amount = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
-    loan_sanction_date = models.DateField(null=True, blank=True)
-    tenure_months = models.PositiveIntegerField(null=True, blank=True)
-    emi = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
-    last_emi_date = models.DateField(null=True, blank=True)
-    created_at = models.DateTimeField(default=timezone.now)
-
-    class Meta:
-        ordering = ['loan_number']
-
-    def __str__(self):
-        return f"Case4 Loan {self.loan_number} for {self.case4.beneficiary.name} - {self.loan_amount}"

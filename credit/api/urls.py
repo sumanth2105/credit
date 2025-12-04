@@ -7,7 +7,8 @@ urlpatterns = [
     # templates / auth
     path("", views.login_page, name="login_page"),
     path('login/', views.user_login, name='login'),
-    path("beneficiary/register/", beneficiary_register),
+    path("beneficiary/register/", views.beneficiary_register, name="beneficiary_register"),
+    path("beneficiary/verify-otp/", views.beneficiary_verify_otp, name="beneficiary_verify_otp"),
     path("home/", views.home_page, name="home_page"),
     path("logout/", views.logout_view, name="logout"),
 
@@ -28,17 +29,17 @@ urlpatterns = [
     path("beneficiary/edit/", views.beneficiary_edit, name="beneficiary_edit"),
     path("beneficiary/documents/", views.beneficiary_documents, name="beneficiary_documents"),
     path("beneficiary/upload-document/", views.upload_beneficiary_document, name="upload_document"),
+    path("case/details/", views.case_details, name="case_details"),
+
+    path(
+        "beneficiary/sync-external/",
+        views.sync_external_data,
+        name="sync_external_data"
+    ),
 
 
     path("case1/input/", views.case1_input, name="case1_input"),
     path("income/scoring/", views.income_scoring, name="income_scoring"),
-    path("case1/details/", views.case1_details, name="case1_details"),
-    path("case2/details/", views.case2_details, name="case2_details"),
-    path("case2/add-loan/", views.case2_add_loan, name="case2_add_loan"),
-    path("case3/details/", views.case3_details, name="case3_details"),
-    path("case3/add-loan/", views.case3_add_loan, name="case3_add_loan"),
-    path("case4/details/", views.case4_details, name="case4_details"),
-    path("case4/add-loan/", views.case4_add_loan, name="case4_add_loan"),
      # Beneficiary loan apply
     path("beneficiary/apply-loan/", views.beneficiary_apply_loan, name="beneficiary_apply_loan"),
 
