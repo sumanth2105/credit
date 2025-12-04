@@ -9,6 +9,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from twilio.rest import Client
 from django.conf import settings
 from django.http import JsonResponse, HttpResponseForbidden
+from django.core.mail import send_mail
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_http_methods
@@ -182,6 +183,25 @@ def user_login(request):
 
 #------------sign up for beneficiary----------
 
+
+def send_otp_email(email, otp: str):
+    """
+    Send OTP to the user's email address.
+    For development, you can use the console email backend so this just prints in the terminal.
+    """
+    subject = "Your verification code"
+    message = f"Your verification code is {otp}"
+    from_email = getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@example.com")
+
+    send_mail(
+        subject,
+        message,
+        from_email,
+        [email],
+        fail_silently=False,
+    )
+
+
 def beneficiary_register(request):
     if request.method == "POST":
         form = BeneficiaryRegisterForm(request.POST)
@@ -201,21 +221,21 @@ def beneficiary_register(request):
                 form.add_error('username', "This username is already taken. Please choose another.")
                 return render(request, "beneficiary_register.html", {"form": form})
 
-            # ✅ 2. (optional but recommended) check if phone is already used
+            # ✅ 2. Check if phone is already used
             if Beneficiary.objects.filter(phone=phone).exists():
                 form.add_error('phone', "This phone number is already registered.")
                 return render(request, "beneficiary_register.html", {"form": form})
 
-            # ✅ 3. Create user safely (no IntegrityError needed now)
+            # ✅ 3. Create user
             user = User.objects.create_user(username=username, password=password)
             if email:
                 user.email = email
                 user.save()
 
-            # 4. Create profile with role beneficiary
+            # ✅ 4. Create profile with role beneficiary
             Profile.objects.create(user=user, role="beneficiary")
 
-            # 5. Create Beneficiary record
+            # ✅ 5. Create Beneficiary record
             ben = Beneficiary.objects.create(
                 user=user,
                 name=name,
@@ -233,21 +253,29 @@ def beneficiary_register(request):
                 consent_given=consent_given,
             )
 
-            # 6. OTP – only for registration
+            # ✅ 6. Generate OTP and send via EMAIL (or console)
             otp = ben.generate_otp()
             try:
-                send_otp_sms(phone, otp)
+                if email:
+                    # send OTP to email
+                    send_otp_email(email, otp)
+                    messages.info(request, "We have sent a verification code to your email.")
+                else:
+                    # fallback for dev: show OTP in console and page
+                    print("DEBUG OTP:", otp)
+                    messages.info(
+                        request,
+                        f"Your OTP is: {otp} (DEV mode, no email configured)."
+                    )
             except Exception as e:
-                # cleanup if SMS fails
-                ben.delete()
-                user.delete()
+                # ❌ Don't delete ben/user here to avoid DB errors if FKs mismatch
                 messages.error(request, f"Failed to send OTP: {e}")
                 return render(request, "beneficiary_register.html", {"form": form})
 
-            # 7. store user id for verification step
+            # ✅ 7. Store user id for verification step
             request.session["pending_beneficiary_user_id"] = user.id
 
-            # 8. redirect to OTP page
+            # ✅ 8. Redirect to OTP page
             return redirect("beneficiary_verify_otp")
     else:
         form = BeneficiaryRegisterForm()

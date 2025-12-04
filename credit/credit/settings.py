@@ -79,6 +79,20 @@ TEMPLATES = [
 WSGI_APPLICATION = 'credit.wsgi.application'
 
 
+
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = "smtp.gmail.com"
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+
+EMAIL_HOST_USER = "sanapathisumanth2119@gmail.com"
+EMAIL_HOST_PASSWORD = "lfrk qkte gexm purp"   # NOT your Gmail password!
+
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+
+
+
+
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
@@ -113,9 +127,9 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 
-TWILIO_ACCOUNT_SID = ""
-TWILIO_AUTH_TOKEN = ""
-TWILIO_FROM_PHONE = "+1"  
+TWILIO_ACCOUNT_SID = "AC903ca340f30b785d2a5857ff8a4753ab"
+TWILIO_AUTH_TOKEN = "ff47f28372b0faf1c135e5e87ab79d6a"
+TWILIO_FROM_PHONE = "+13159083763" 
 
 
 

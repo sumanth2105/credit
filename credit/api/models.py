@@ -9,39 +9,52 @@ ROLE_CHOICES = [
     ("officer", "Officer"),
 ]
 
+
+
+
+
 def generate_beneficiary_id():
-    """Generate next beneficiary ID in sequence BEN100000, BEN100001, etc."""
-    from api.models import Beneficiary
+    """
+    Generate next beneficiary ID in sequence:
+    BEN100000, BEN100001, BEN100002, ...
+    """
+    from api.models import Beneficiary  # local import to avoid circular import
     try:
-        # Get the last beneficiary
-        last_ben = Beneficiary.objects.all().order_by('-id').first()
+        # Get the last beneficiary ordered by id (string, but fixed numeric width)
+        last_ben = Beneficiary.objects.all().order_by("-id").first()
         if last_ben:
             # Extract number from id like "BEN100005" -> 100005
-            num = int(last_ben.id.replace('BEN', ''))
+            num = int(last_ben.id.replace("BEN", ""))
             return f"BEN{num + 1:06d}"
         else:
             return "BEN100000"
-    except:
+    except Exception:
+        # Fallback if anything goes wrong (e.g., DB not ready yet)
         return "BEN100000"
 
 
-
-
-
-
 class Profile(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="profile")
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default="beneficiary")
+    """
+    One-to-one profile for each auth.User.
+    Deleting the user will also delete the profile.
+    """
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name="profile",
+    )
+    role = models.CharField(
+        max_length=20,
+        choices=ROLE_CHOICES,
+        default="beneficiary",
+    )
     picture = models.URLField(blank=True, null=True)
 
     def __str__(self):
         return f"{self.user.username} ({self.role})"
-    
 
 
 class Beneficiary(models.Model):
-
-
     CASE1 = "CASE1"
     CASE2 = "CASE2"
     CASE3 = "CASE3"
@@ -53,21 +66,55 @@ class Beneficiary(models.Model):
         (CASE3, "Case 3"),
         (CASE4, "Case 4"),
     ]
-    id = models.CharField(max_length=20, primary_key=True, default=generate_beneficiary_id, editable=False)
+
+    id = models.CharField(
+        max_length=20,
+        primary_key=True,
+        default=generate_beneficiary_id,
+        editable=False,
+    )
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="beneficiaries",
+    )
+    officer = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="uploaded_beneficiaries",
+    )
+
     name = models.CharField(max_length=256)
     age = models.PositiveIntegerField(null=True, blank=True)
+
     GENDER_CHOICES = [
         ("male", "Male"),
         ("female", "Female"),
         ("other", "Other"),
     ]
-    gender = models.CharField(max_length=10, choices=GENDER_CHOICES, null=True, blank=True)
+    gender = models.CharField(
+        max_length=10,
+        choices=GENDER_CHOICES,
+        null=True,
+        blank=True,
+    )
+
     date_of_birth = models.DateField(null=True, blank=True)
     phone = models.CharField(max_length=20, null=True, blank=True)
     email = models.EmailField(null=True, blank=True)
+
     location = models.CharField(max_length=256, blank=True)
     consent_given = models.BooleanField(default=False)
-    location_type = models.CharField(max_length=50, blank=True, null=True)  # rural/urban
+    location_type = models.CharField(
+        max_length=50,
+        blank=True,
+        null=True,  # rural / urban
+    )
     state = models.CharField(max_length=100, blank=True, null=True)
     district = models.CharField(max_length=100, blank=True, null=True)
     pincode = models.CharField(max_length=20, blank=True, null=True)
@@ -79,59 +126,71 @@ class Beneficiary(models.Model):
     aadhaar_verified = models.BooleanField(default=False)
     pan_available = models.BooleanField(default=False)
     bank_account_active = models.BooleanField(default=False)
+
     income_est = models.FloatField(null=True, blank=True)
     estimated_monthly_income = models.FloatField(null=True, blank=True)
     income_category = models.CharField(max_length=50, blank=True, null=True)
     employment_type = models.CharField(max_length=50, blank=True, null=True)
     work_consistency_days = models.PositiveIntegerField(null=True, blank=True)
+
     eligibility_label = models.CharField(max_length=50, blank=True, null=True)
     model_score = models.FloatField(null=True, blank=True)
     approval_flag = models.BooleanField(null=True, blank=True)
     other_details = models.JSONField(null=True, blank=True, default=dict)
+
     risk_band = models.CharField(max_length=50, blank=True, null=True)
     need_band = models.CharField(max_length=50, blank=True, null=True)
     score = models.FloatField(null=True, blank=True)
     eligibility = models.CharField(max_length=50, blank=True, null=True)
-    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="beneficiaries")
-    officer = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="uploaded_beneficiaries")
-    created_at = models.DateTimeField(default=timezone.now)
-    updated_at = models.DateTimeField(auto_now=True)
-    otp_code = models.CharField(max_length=6, null=True, blank=True)
-    otp_created_at = models.DateTimeField(null=True, blank=True)
-    is_phone_verified = models.BooleanField(default=False)
 
+    # credit history fields
     number_of_loans = models.PositiveIntegerField(
-        null=True, blank=True, help_text="Total number of loans"
+        null=True,
+        blank=True,
+        help_text="Total number of loans",
     )
     emi_due_delays = models.PositiveIntegerField(
-        null=True, blank=True, help_text="No. of delayed EMIs"
+        null=True,
+        blank=True,
+        help_text="No. of delayed EMIs",
     )
     credit_card_available = models.BooleanField(
-        null=True, blank=True, help_text="Has credit card?"
+        null=True,
+        blank=True,
+        help_text="Has credit card?",
     )
     cibil_score = models.PositiveIntegerField(
-        null=True, blank=True, help_text="Reported CIBIL score"
-    )
-    case_type = models.CharField(
-        max_length=10,
         null=True,
         blank=True,
-        help_text="One of CASE1/CASE2/CASE3/CASE4"
+        help_text="Reported CIBIL score",
     )
+
     case_type = models.CharField(
         max_length=10,
+        choices=CASE_TYPE_CHOICES,
         null=True,
         blank=True,
-        help_text="One of CASE1/CASE2/CASE3/CASE4"
+        help_text="One of CASE1 / CASE2 / CASE3 / CASE4",
     )
 
     # Store reason when number_of_loans or emi_due_delays are changed
     loans_dues_change_reason = models.TextField(
         null=True,
         blank=True,
-        help_text="Reason for changing number of loans or EMI due delays after first submission"
-    
+        help_text=(
+            "Reason for changing number of loans or EMI due delays "
+            "after first submission"
+        ),
     )
+
+    # OTP-related fields
+    otp_code = models.CharField(max_length=6, null=True, blank=True)
+    otp_created_at = models.DateTimeField(null=True, blank=True)
+    is_phone_verified = models.BooleanField(default=False)
+
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
 
 
     def __str__(self):
