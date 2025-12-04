@@ -1,8 +1,9 @@
+{% load i18n %}
 <!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Login</title>
+    <title>{% trans "Login" %}</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: Arial, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; display: flex; justify-content: center; align-items: center; }
@@ -20,26 +21,26 @@
 </head>
 <body>
     <div class="container">
-        <h2>Login</h2>
+        <h2>{% trans "Login" %}</h2>
 
     <form id="loginForm" method="POST" action="/login/">
         {% csrf_token %}
 
-        <label>Username:</label><br>
+        <label>{% trans "Username:" %}</label><br>
         <input type="text" name="username" id="username" required><br><br>
 
-        <label>Password:</label><br>
+        <label>{% trans "Password:" %}</label><br>
         <input type="password" name="password" id="password" required><br><br>
 
-        <label>Role:</label>
+        <label>{% trans "Role:" %}</label>
         <select name="role" id="role">
-            <option value="beneficiary">Beneficiary</option>
-            <option value="officer">Officer</option>
+            <option value="beneficiary">{% trans "Beneficiary" %}</option>
+            <option value="officer">{% trans "Officer" %}</option>
         </select><br><br>
 
-        <button type="submit">Login</button>
-        <p>New Beneficiary? 
-             <a href="/beneficiary/register/">Create an Account</a>
+        <button type="submit">{% trans "Login" %}</button>
+        <p>{% trans "New Beneficiary?" %}
+             <a href="/beneficiary/register/">{% trans "Create an Account" %}</a>
         </p>
 
     </form>
